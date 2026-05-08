@@ -1,3 +1,18 @@
+/**
+ * middleware/rbac.js
+ * Role-based access control middleware.
+ *
+ * Each guard accepts a list of allowed roles. Admin always passes — admin is
+ * a privileged bypass for support actions. So:
+ *   requireReporter → reporter, admin
+ *   requireExpert   → expert, admin
+ *   requireAdmin    → admin only
+ *
+ * For routes that should accept any authenticated user (notifications,
+ * news, testimonials, public expert profile), do not apply any role guard —
+ * just rely on requireAuth.
+ */
+
 function sendError(res, status, code, message, details = null) {
   return res.status(status).json({
     success: false,
@@ -9,7 +24,15 @@ function sendError(res, status, code, message, details = null) {
   });
 }
 
+/**
+ * requireRole(['reporter']) → only reporters (plus admins) may call.
+ * requireRole(['expert'])   → only experts (plus admins) may call.
+ *
+ * Admin role is automatically allowed in every guard.
+ */
 function requireRole(allowedRoles) {
+  const allowed = new Set([...allowedRoles, 'admin']);
+
   return (req, res, next) => {
     if (!req.user) {
       return sendError(
@@ -20,14 +43,14 @@ function requireRole(allowedRoles) {
       );
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    if (!allowed.has(req.user.role)) {
       return sendError(
         res,
         403,
         'FORBIDDEN',
         'You do not have permission to access this resource.',
         {
-          required_roles: allowedRoles,
+          required_roles: [...allowed],
           your_role: req.user.role,
         }
       );
@@ -37,11 +60,8 @@ function requireRole(allowedRoles) {
   };
 }
 
-// Existing project behavior:
-// requireReporter allows all authenticated app roles.
-// Do not change this now because other routes depend on it.
-const requireReporter = requireRole(['reporter', 'expert', 'admin']);
-const requireExpert = requireRole(['expert', 'admin']);
+const requireReporter = requireRole(['reporter']);
+const requireExpert = requireRole(['expert']);
 const requireAdmin = requireRole(['admin']);
 
 module.exports = {
