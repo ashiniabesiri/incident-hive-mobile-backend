@@ -1180,8 +1180,11 @@ const swaggerDefinition = {
           200: {
             description: 'Incident deleted successfully',
           },
+          404: {
+            description: 'Incident not found',
+          },
           409: {
-            description: 'Only Open incidents can be deleted',
+            description: 'Only Open incidents can be deleted, or incident has an accepted bid',
           },
         },
       },

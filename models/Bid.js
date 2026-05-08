@@ -319,6 +319,14 @@ const BidModel = {
     return rows[0].total;
   },
 
+  async hasAcceptedBid(incidentId) {
+    const { rows } = await query(
+      "SELECT 1 FROM bids WHERE incident_id = $1 AND status = 'Accepted' LIMIT 1",
+      [incidentId]
+    );
+    return rows.length > 0;
+  },
+
   VALID_STATUSES,
 };
 

@@ -501,6 +501,17 @@ async function deleteIncident(req, res, next) {
       });
     }
 
+    // ── Accepted-bid guard ────────────────────────────────────────────────
+    if (await BidModel.hasAcceptedBid(incident_id)) {
+      return res.status(409).json({
+        success: false,
+        error: {
+          code: 'HAS_ACCEPTED_BID',
+          message: 'Cannot delete an incident that has an accepted bid.',
+        },
+      });
+    }
+
     // ── Fetch attachments before deleting (need URLs for storage cleanup) ──
     const attachments = await AttachmentModel.findByIncident(incident_id);
 

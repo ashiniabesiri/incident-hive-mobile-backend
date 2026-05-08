@@ -24,7 +24,8 @@
       "Bash(node -e \"require\\('./controllers/profileController'\\); console.log\\('OK'\\)\")",
       "Bash(node -e \"require\\('./models/Incident'\\); require\\('./controllers/incidentController'\\); console.log\\('OK'\\)\")",
       "Bash(node -e \"require\\('./controllers/incidentController'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
-      "Bash(node -e \"require\\('./controllers/incidentController'\\); console.log\\('OK'\\)\")"
+      "Bash(node -e \"require\\('./controllers/incidentController'\\); console.log\\('OK'\\)\")",
+      "Bash(node -e \"require\\('./models/Bid'\\); require\\('./controllers/incidentController'\\); console.log\\('OK'\\)\")"
     ]
   }
 }
