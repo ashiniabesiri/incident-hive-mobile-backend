@@ -207,6 +207,10 @@ async function listIncidents(req, res, next) {
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit || '10', 10)));
     const offset = (page - 1) * limit;
 
+    const VALID_SORT_FIELDS = ['created_at', 'updated_at', 'budget', 'status'];
+    const sortBy    = VALID_SORT_FIELDS.includes(req.query.sort_by) ? req.query.sort_by : 'created_at';
+    const sortOrder = req.query.sort_order === 'asc' ? 'ASC' : 'DESC';
+
     // Validate enum values if provided
     if (status && !IncidentModel.VALID_STATUSES.includes(status)) {
       return res.status(400).json({
@@ -254,7 +258,7 @@ async function listIncidents(req, res, next) {
         ) AS bid_count
       FROM incidents i
       WHERE ${whereClause}
-      ORDER BY i.created_at DESC
+      ORDER BY i.${sortBy} ${sortOrder}
       LIMIT $${params.length - 1} OFFSET $${params.length}
     `;
 
@@ -283,9 +287,11 @@ async function listIncidents(req, res, next) {
           total,
           page,
           limit,
-          totalPages,
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1,
+          sort_by: sortBy,
+          sort_order: sortOrder.toLowerCase(),
+          total_pages: totalPages,
+          has_next_page: page < totalPages,
+          has_prev_page: page > 1,
         },
       },
     });

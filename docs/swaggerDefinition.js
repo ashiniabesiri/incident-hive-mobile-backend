@@ -956,6 +956,24 @@ const swaggerDefinition = {
               example: 20,
             },
           },
+          {
+            name: 'sort_by',
+            in: 'query',
+            schema: {
+              type: 'string',
+              enum: ['created_at', 'updated_at', 'budget', 'status'],
+              default: 'created_at',
+            },
+          },
+          {
+            name: 'sort_order',
+            in: 'query',
+            schema: {
+              type: 'string',
+              enum: ['asc', 'desc'],
+              default: 'desc',
+            },
+          },
         ],
         responses: {
           200: {
