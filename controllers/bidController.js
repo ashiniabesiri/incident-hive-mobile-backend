@@ -41,18 +41,35 @@ const placeBidSchema = Joi.object({
     'string.max':   'Proposed approach must not exceed 5000 characters.',
     'any.required': 'Proposed approach is required.',
   }),
-  estimated_hours: Joi.number().integer().min(1).max(10000).required().messages({
+  estimated_time: Joi.alternatives().try(
+    Joi.number().integer().min(1).max(10000),
+    Joi.string().trim().pattern(/^\d+\s*(hours?|hrs?|h)$/i)
+  ).optional(),
+  estimated_hours: Joi.number().integer().min(1).max(10000).optional().messages({
     'number.base':    'Estimated hours must be a number.',
     'number.integer': 'Estimated hours must be a whole number.',
     'number.min':     'Estimated hours must be at least 1.',
-    'any.required':   'Estimated hours is required.',
   }),
   proposed_fee: Joi.number().precision(2).min(0).required().messages({
     'number.base':  'Proposed fee must be a number.',
     'number.min':   'Proposed fee cannot be negative.',
     'any.required': 'Proposed fee is required.',
   }),
+}).or('estimated_time', 'estimated_hours').messages({
+  'object.missing': 'Either estimated_time or estimated_hours is required.',
 });
+
+function parseEstimatedHours(body) {
+  if (body.estimated_hours != null) return body.estimated_hours;
+  const val = body.estimated_time;
+  if (typeof val === 'number') return val;
+  const match = String(val).match(/^(\d+)/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+function formatEstimatedTime(hours) {
+  return `${hours} hour${hours === 1 ? '' : 's'}`;
+}
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -205,12 +222,15 @@ async function placeBid(req, res, next) {
       });
     }
 
+    // ── Normalise estimated_time / estimated_hours ─────────────────────────
+    const estimatedHours = parseEstimatedHours(body);
+
     // ── Create the bid ─────────────────────────────────────────────────────
     const bid = await BidModel.create({
       incidentId:       incident_id,
       expertId,
       proposedApproach: body.proposed_approach,
-      estimatedHours:   body.estimated_hours,
+      estimatedHours,
       proposedFee:      body.proposed_fee,
     });
 
@@ -226,7 +246,12 @@ async function placeBid(req, res, next) {
     res.status(201).json({
       success: true,
       message: 'Bid placed successfully.',
-      data:    { bid },
+      data: {
+        bid: {
+          ...bid,
+          estimated_time: formatEstimatedTime(bid.estimated_hours),
+        },
+      },
     });
   } catch (error) {
     // DB unique constraint violation — expert tried to bid twice despite the check

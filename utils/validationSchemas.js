@@ -143,9 +143,13 @@ const updateStatusSchema = Joi.object({
 // ── Bid schemas ────────────────────────────────────────────────────────────────
 const placeBidSchema = Joi.object({
   proposed_approach: Joi.string().min(20).max(5000).trim().required(),
-  estimated_hours: Joi.number().integer().min(1).max(10000).required(),
+  estimated_time: Joi.alternatives().try(
+    Joi.number().integer().min(1).max(10000),
+    Joi.string().trim().pattern(/^\d+\s*(hours?|hrs?|h)$/i)
+  ).optional(),
+  estimated_hours: Joi.number().integer().min(1).max(10000).optional(),
   proposed_fee: Joi.number().min(0).precision(2).required(),
-});
+}).or('estimated_time', 'estimated_hours');
 
 module.exports = {
   // Auth

@@ -301,15 +301,22 @@ const swaggerDefinition = {
 
       PlaceBidRequest: {
         type: 'object',
-        required: ['proposed_approach', 'estimated_hours', 'proposed_fee'],
+        required: ['proposed_approach', 'proposed_fee'],
+        description: 'Provide either estimated_time (string, e.g. "5 hours") or estimated_hours (integer). At least one is required.',
         properties: {
           proposed_approach: {
             type: 'string',
             example:
               'I will review the suspicious email headers, check the link, and provide remediation advice.',
           },
+          estimated_time: {
+            type: 'string',
+            description: 'Human-readable estimate, e.g. "5 hours". Accepts a number or string like "3 hours".',
+            example: '3 hours',
+          },
           estimated_hours: {
             type: 'integer',
+            description: 'Numeric hours estimate. Alternative to estimated_time.',
             example: 3,
           },
           proposed_fee: {
