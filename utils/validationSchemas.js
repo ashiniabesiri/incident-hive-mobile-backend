@@ -151,6 +151,20 @@ const placeBidSchema = Joi.object({
   proposed_fee: Joi.number().min(0).precision(2).required(),
 }).or('estimated_time', 'estimated_hours');
 
+// ── Password reset schemas ───────────────────────────────────────────────────
+const forgotPasswordSchema = Joi.object({
+  email: Joi.string().email().trim().lowercase().required(),
+});
+
+const resetPasswordSchema = Joi.object({
+  email: Joi.string().email().trim().lowercase().required(),
+  otp_code: Joi.string().length(6).pattern(/^\d+$/).required().messages({
+    'string.length': 'Reset code must be 6 digits.',
+    'string.pattern.base': 'Reset code must be 6 digits.',
+  }),
+  new_password: strongPassword,
+});
+
 module.exports = {
   // Auth
   registerSchema,
@@ -163,6 +177,8 @@ module.exports = {
   mfaLoginSchema,
   biometricRegisterSchema,
   biometricLoginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 
   // Incident
   createIncidentSchema,

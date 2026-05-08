@@ -49,6 +49,8 @@ const {
   mfaLoginSchema,
   biometricRegisterSchema,
   biometricLoginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } = require('../utils/validationSchemas');
 
 const router = Router();
@@ -131,6 +133,28 @@ router.post(
 router.post(
   '/google',
   controller.googleLogin
+);
+
+/**
+ * POST /api/v1/auth/forgot-password
+ * Request a password reset OTP via email.
+ */
+router.post(
+  '/forgot-password',
+  passwordLimiter,
+  validate(forgotPasswordSchema),
+  controller.forgotPassword
+);
+
+/**
+ * POST /api/v1/auth/reset-password
+ * Reset password using the OTP from forgot-password.
+ */
+router.post(
+  '/reset-password',
+  passwordLimiter,
+  validate(resetPasswordSchema),
+  controller.resetPassword
 );
 
 // ─────────────────────────────────────────────────────────────────────────────

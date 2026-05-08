@@ -112,6 +112,20 @@ async function sendMfaCode(email, code, firstName) {
   });
 }
 
+async function sendPasswordResetEmail(email, code, firstName) {
+  await sendEmail({
+    to:      email,
+    subject: 'Reset your Incident Hive password',
+    html:    wrap(`
+      <p>Hello <strong>${firstName || 'there'}</strong>,</p>
+      <p>We received a request to reset your password. Use the code below to proceed.</p>
+      ${codeBox(code, '#ef4444')}
+      <p>Expires in <strong>15 minutes</strong>. If you did not request this, ignore this email.</p>
+      <p style="color:#94a3b8;font-size:13px;">Never share this code with anyone.</p>
+    `),
+  });
+}
+
 async function sendAccountDeletionEmail(email) {
   await sendEmail({
     to:      email,
@@ -124,4 +138,4 @@ async function sendAccountDeletionEmail(email) {
   });
 }
 
-module.exports = { sendVerificationEmail, sendMfaCode, sendAccountDeletionEmail };
+module.exports = { sendVerificationEmail, sendMfaCode, sendPasswordResetEmail, sendAccountDeletionEmail };

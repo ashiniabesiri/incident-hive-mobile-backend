@@ -780,6 +780,75 @@ const swaggerDefinition = {
       },
     },
 
+    '/auth/forgot-password': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Request password reset OTP',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                  email: { type: 'string', format: 'email', example: 'user@example.com' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Reset code sent if account exists (always returns 200 to prevent email enumeration)',
+          },
+          422: {
+            description: 'Validation failed',
+          },
+          429: {
+            description: 'Rate limit exceeded',
+          },
+        },
+      },
+    },
+
+    '/auth/reset-password': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Reset password using OTP',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['email', 'otp_code', 'new_password'],
+                properties: {
+                  email: { type: 'string', format: 'email', example: 'user@example.com' },
+                  otp_code: { type: 'string', example: '123456', description: '6-digit code from email' },
+                  new_password: { type: 'string', example: 'NewP@ssw0rd!', description: 'Must have uppercase, lowercase, number, and special char' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Password reset successfully. All sessions revoked.',
+          },
+          400: {
+            description: 'Invalid or expired reset code',
+          },
+          422: {
+            description: 'Validation failed',
+          },
+          429: {
+            description: 'Rate limit exceeded',
+          },
+        },
+      },
+    },
+
     '/profile': {
       get: {
         tags: ['Profile'],

@@ -7,6 +7,7 @@
  *   session:{userId}     → "active" string               TTL: 30 min  (1 800 s) — SLIDING
  *   verify:{email}       → 6-digit OTP string            TTL: 15 min  (900 s)
  *   mfa:{email}          → 6-digit OTP string            TTL: 15 min  (900 s)
+ *   pwreset:{email}      → 6-digit OTP string            TTL: 15 min  (900 s)
  *   biometric:{userId}   → encrypted biometric key       TTL: 30 days (2 592 000 s)
  * ──────────────────────────────────────────────────────────────────────────────
  *

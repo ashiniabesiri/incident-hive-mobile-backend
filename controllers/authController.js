@@ -14,6 +14,7 @@ const TokenService = require('../services/tokenService');
 const {
   sendVerificationEmail,
   sendMfaCode,
+  sendPasswordResetEmail,
   sendAccountDeletionEmail,
 } = require('../services/emailService');
 
@@ -29,11 +30,13 @@ const logger = require('../utils/logger');
 // ─── Constants ────────────────────────────────────────────────────────────────
 const SALT_ROUNDS = 10;
 
-const VERIFY_PREFIX = 'verify:';
-const MFA_PREFIX = 'mfa:';
+const VERIFY_PREFIX  = 'verify:';
+const MFA_PREFIX     = 'mfa:';
+const PW_RESET_PREFIX = 'pwreset:';
 
-const VERIFY_TTL = parseInt(process.env.EMAIL_VERIFICATION_TTL_SECONDS || '900', 10);
-const MFA_TTL = parseInt(process.env.MFA_OTP_TTL_SECONDS || '300', 10);
+const VERIFY_TTL   = parseInt(process.env.EMAIL_VERIFICATION_TTL_SECONDS || '900', 10);
+const MFA_TTL      = parseInt(process.env.MFA_OTP_TTL_SECONDS || '300', 10);
+const PW_RESET_TTL = parseInt(process.env.PASSWORD_RESET_TTL_SECONDS || '900', 10);
 const { ACCESS_TTL, SESSION_TTL } = TokenService;
 
 // ─── Google OAuth client ──────────────────────────────────────────────────────
@@ -758,6 +761,79 @@ async function getProfile(req, res, next) {
   }
 }
 
+// ─── POST /api/v1/auth/forgot-password ────────────────────────────────────────
+
+async function forgotPassword(req, res, next) {
+  try {
+    const { email } = req.body;
+
+    const user = await UserModel.findByEmail(email);
+
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          message: 'If an account with that email exists, a reset code has been sent.',
+        },
+      });
+    }
+
+    const otp = generateOtp();
+    await set(`${PW_RESET_PREFIX}${user.email.toLowerCase()}`, otp, PW_RESET_TTL);
+
+    sendPasswordResetEmail(user.email, otp, user.first_name).catch((err) =>
+      logger.error('Password reset email failed:', err)
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        message: 'If an account with that email exists, a reset code has been sent.',
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+// ─── POST /api/v1/auth/reset-password ─────────────────────────────────────────
+
+async function resetPassword(req, res, next) {
+  try {
+    const { email, otp_code, new_password } = req.body;
+
+    const storedOtp = await get(`${PW_RESET_PREFIX}${email.toLowerCase()}`);
+
+    if (!storedOtp) {
+      return sendError(res, 400, 'RESET_CODE_EXPIRED', 'Reset code has expired or was not requested.');
+    }
+
+    if (!timingSafeEqual(otp_code, storedOtp)) {
+      return sendError(res, 400, 'INVALID_RESET_CODE', 'Invalid reset code.');
+    }
+
+    const user = await UserModel.findByEmail(email);
+    if (!user) {
+      return sendError(res, 404, 'USER_NOT_FOUND', 'User not found.');
+    }
+
+    const newHash = await bcrypt.hash(new_password, SALT_ROUNDS);
+    await UserModel.updatePassword(user.user_id, newHash);
+
+    await del(`${PW_RESET_PREFIX}${email.toLowerCase()}`);
+    await TokenService.revokeAllTokens(user.user_id);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        message: 'Password has been reset successfully. Please log in with your new password.',
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 // ─── Exports ──────────────────────────────────────────────────────────────────
 module.exports = {
   register,
@@ -774,4 +850,6 @@ module.exports = {
   biometricRegister,
   biometricLogin,
   getProfile,
+  forgotPassword,
+  resetPassword,
 };
