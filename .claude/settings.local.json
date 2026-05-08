@@ -13,7 +13,12 @@
       "Bash(node -e \"require\\('./controllers/authController'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
       "Bash(node -e \"require\\('./services/tokenService'\\); require\\('./controllers/authController'\\); require\\('./routes/authRoutes'\\); console.log\\('OK'\\)\")",
       "Bash(node scripts/generate-keys.js)",
-      "Bash(node -e \"process.env.JWT_PRIVATE_KEY_PATH='./keys/private.pem'; process.env.JWT_PUBLIC_KEY_PATH='./keys/public.pem'; const ts = require\\('./services/tokenService'\\); const token = ts.generateAccessToken\\({userId:'test',email:'t@t.com',role:'reporter'}\\); const decoded = ts.verifyAccessToken\\(token\\); console.log\\('Algorithm check passed'\\); console.log\\('sub:', decoded.sub, 'role:', decoded.role\\);\")"
+      "Bash(node -e \"process.env.JWT_PRIVATE_KEY_PATH='./keys/private.pem'; process.env.JWT_PUBLIC_KEY_PATH='./keys/public.pem'; const ts = require\\('./services/tokenService'\\); const token = ts.generateAccessToken\\({userId:'test',email:'t@t.com',role:'reporter'}\\); const decoded = ts.verifyAccessToken\\(token\\); console.log\\('Algorithm check passed'\\); console.log\\('sub:', decoded.sub, 'role:', decoded.role\\);\")",
+      "Bash(node -e \"const ts = require\\('./services/tokenService'\\); const token = ts.generateAccessToken\\({userId:'test',email:'t@t.com',role:'reporter'}\\); const decoded = ts.verifyAccessToken\\(token\\); console.log\\('jti:', decoded.jti, '| has jti:', !!decoded.jti\\);\")",
+      "Bash(node -e \"const ts = require\\('./services/tokenService'\\); \\(async\\(\\)=>{ const t = await ts.generateRefreshToken\\('usr_test','dev_abc'\\); const d = require\\('jsonwebtoken'\\).decode\\(t\\); console.log\\('device_id:', d.device_id, '| sub:', d.sub, '| jti:', !!d.jti\\); }\\)\\(\\).catch\\(console.error\\)\")",
+      "Bash(node -e \"const jwt = require\\('jsonwebtoken'\\); const token = jwt.sign\\({ sub:'usr_test', jti:'abc', type:'refresh', device_id:'dev_123' }, 'secret', { expiresIn: 100 }\\); const d = jwt.decode\\(token\\); console.log\\('device_id:', d.device_id, '| sub:', d.sub\\);\")",
+      "Bash(node -e \"require\\('./controllers/authController'\\); require\\('./services/tokenService'\\); console.log\\('OK'\\)\")",
+      "Bash(node -e \"require\\('./services/tokenService'\\); require\\('./controllers/authController'\\); console.log\\('OK'\\)\")"
     ]
   }
 }

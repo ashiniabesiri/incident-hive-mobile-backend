@@ -1,9 +1,14 @@
 const jwt            = require('jsonwebtoken');
+const crypto         = require('crypto');
 const fs             = require('fs');
 const path           = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { set, get, del } = require('../config/redis');
 const logger         = require('../utils/logger');
+
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
 
 const REFRESH_PREFIX    = 'refresh:';
 const SESSION_PREFIX    = 'session:';
@@ -47,7 +52,7 @@ const TokenService = {
 
   generateAccessToken({ userId, email, role, amr = ['pwd'] }) {
     return jwt.sign(
-      { sub: userId, email, role, type: 'access', amr },
+      { sub: userId, email, role, type: 'access', amr, jti: uuidv4() },
       SIGN_KEY,
       { expiresIn: ACCESS_TTL, ...SIGN_OPTIONS }
     );
@@ -57,13 +62,15 @@ const TokenService = {
     return jwt.verify(token, VERIFY_KEY, VERIFY_OPTIONS);
   },
 
-  async generateRefreshToken(userId) {
-    const token = jwt.sign(
-      { sub: userId, jti: uuidv4(), type: 'refresh' },
-      REFRESH_SIGN,
-      { expiresIn: REFRESH_TTL, ...SIGN_OPTIONS }
-    );
-    await set(`${REFRESH_PREFIX}${userId}`, token, REFRESH_TTL);
+  async generateRefreshToken(userId, deviceId = null) {
+    const payload = { sub: userId, jti: uuidv4(), type: 'refresh' };
+    if (deviceId) payload.device_id = deviceId;
+
+    const token = jwt.sign(payload, REFRESH_SIGN, {
+      expiresIn: REFRESH_TTL,
+      ...SIGN_OPTIONS,
+    });
+    await set(`${REFRESH_PREFIX}${userId}`, hashToken(token), REFRESH_TTL);
     return token;
   },
 
@@ -80,7 +87,7 @@ const TokenService = {
     const userId = decoded.sub;
     const stored = await get(`${REFRESH_PREFIX}${userId}`);
 
-    if (!stored || stored !== token) {
+    if (!stored || stored !== hashToken(token)) {
       await del(`${REFRESH_PREFIX}${userId}`, `${SESSION_PREFIX}${userId}`);
       logger.warn(`Refresh token replay detected for user ${userId}`);
       const err = new Error('Token reuse detected. All sessions revoked. Please log in again.');
@@ -91,10 +98,10 @@ const TokenService = {
     return { userId, deviceId: decoded.device_id || null };
   },
 
-  async rotateRefreshToken(userId, email, role) {
+  async rotateRefreshToken(userId, email, role, deviceId = null) {
     await del(`${REFRESH_PREFIX}${userId}`);
     const accessToken  = TokenService.generateAccessToken({ userId, email, role });
-    const refreshToken = await TokenService.generateRefreshToken(userId);
+    const refreshToken = await TokenService.generateRefreshToken(userId, deviceId);
     return { accessToken, refreshToken };
   },
 

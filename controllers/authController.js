@@ -246,7 +246,7 @@ async function login(req, res, next) {
       amr: ['pwd'],
     });
 
-    const refreshToken = await TokenService.generateRefreshToken(user.user_id);
+    const refreshToken = await TokenService.generateRefreshToken(user.user_id, device_id);
 
     await TokenService.touchSession(user.user_id);
     await UserModel.updateLastLogin(user.user_id);
@@ -300,7 +300,7 @@ async function refreshToken(req, res, next) {
     }
 
     const { accessToken, refreshToken: newRefreshToken } =
-      await TokenService.rotateRefreshToken(userId, user.email, user.role);
+      await TokenService.rotateRefreshToken(userId, user.email, user.role, device_id);
 
     await TokenService.touchSession(userId);
 
@@ -708,7 +708,7 @@ async function biometricLogin(req, res, next) {
       amr: ['bio'],
     });
 
-    const refreshToken = await TokenService.generateRefreshToken(user.user_id);
+    const refreshToken = await TokenService.generateRefreshToken(user.user_id, device_id);
 
     await TokenService.touchSession(user.user_id);
     await UserDeviceModel.touchDevice(user.user_id, device_id);
