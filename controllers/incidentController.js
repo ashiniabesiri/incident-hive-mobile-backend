@@ -23,6 +23,18 @@ const { uploadFiles, deleteFiles } = require('../services/fileUploadService');
 const { query }        = require('../config/database');
 const logger           = require('../utils/logger');
 
+// ─── Case-normalisation helpers ─────────────────────────────────────────────────
+
+const STATUS_MAP = Object.fromEntries(
+  IncidentModel.VALID_STATUSES.map((s) => [s.toLowerCase(), s])
+);
+const TYPE_MAP = Object.fromEntries(
+  IncidentModel.VALID_TYPES.map((t) => [t.toLowerCase(), t])
+);
+
+function normaliseStatus(val) { return STATUS_MAP[val.toLowerCase()] || val; }
+function normaliseType(val)   { return TYPE_MAP[val.toLowerCase()] || val; }
+
 // ─── Validation schemas (incident-specific) ────────────────────────────────────
 
 const createIncidentSchema = Joi.object({
@@ -37,6 +49,7 @@ const createIncidentSchema = Joi.object({
     'any.required': 'Description is required.',
   }),
   incident_type: Joi.string()
+    .custom((val) => normaliseType(val))
     .valid(...IncidentModel.VALID_TYPES)
     .required()
     .messages({
@@ -51,7 +64,7 @@ const createIncidentSchema = Joi.object({
 const updateIncidentSchema = Joi.object({
   title:         Joi.string().min(3).max(150).trim(),
   description:   Joi.string().min(10).max(5000).trim(),
-  incident_type: Joi.string().valid(...IncidentModel.VALID_TYPES),
+  incident_type: Joi.string().custom((val) => normaliseType(val)).valid(...IncidentModel.VALID_TYPES),
   budget:        Joi.number().precision(2).min(0).allow(null),
   currency:      Joi.string().valid('LKR', 'USD', 'EUR', 'GBP'),
   is_anonymous:  Joi.boolean(),
@@ -61,6 +74,7 @@ const updateIncidentSchema = Joi.object({
 
 const updateStatusSchema = Joi.object({
   status: Joi.string()
+    .custom((val) => normaliseStatus(val))
     .valid('In Progress', 'Completed', 'Cancelled')
     .required()
     .messages({
@@ -208,7 +222,9 @@ async function listIncidents(req, res, next) {
     const reporterId = req.user.userId;
 
     // ── Parse + sanitise query params ─────────────────────────────────────
-    const { status, incident_type, search } = req.query;
+    const { search } = req.query;
+    const status        = req.query.status        ? normaliseStatus(req.query.status)        : undefined;
+    const incident_type = req.query.incident_type ? normaliseType(req.query.incident_type)   : undefined;
     const page  = Math.max(1, parseInt(req.query.page  || '1',  10));
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit || '10', 10)));
     const offset = (page - 1) * limit;
@@ -217,7 +233,7 @@ async function listIncidents(req, res, next) {
     const sortBy    = VALID_SORT_FIELDS.includes(req.query.sort_by) ? req.query.sort_by : 'created_at';
     const sortOrder = req.query.sort_order === 'asc' ? 'ASC' : 'DESC';
 
-    // Validate enum values if provided
+    // Validate enum values if provided (after normalisation)
     if (status && !IncidentModel.VALID_STATUSES.includes(status)) {
       return res.status(400).json({
         success: false,
