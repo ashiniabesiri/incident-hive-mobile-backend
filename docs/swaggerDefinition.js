@@ -1043,7 +1043,66 @@ const swaggerDefinition = {
         ],
         responses: {
           200: {
-            description: 'Incident details returned',
+            description: 'Incident details with inline bids array and attachments',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        incident: {
+                          type: 'object',
+                          properties: {
+                            incident_id: { type: 'string', format: 'uuid' },
+                            incident_type: { type: 'string', example: 'Phishing' },
+                            title: { type: 'string' },
+                            description: { type: 'string' },
+                            budget: { type: 'number', example: 5000 },
+                            currency: { type: 'string', example: 'LKR' },
+                            status: { type: 'string', example: 'Open' },
+                            bid_count: { type: 'integer', example: 2 },
+                            bids: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  bid_id: { type: 'string', format: 'uuid' },
+                                  expert_id: { type: 'string', format: 'uuid' },
+                                  proposed_approach: { type: 'string' },
+                                  estimated_hours: { type: 'integer' },
+                                  proposed_fee: { type: 'number' },
+                                  status: { type: 'string' },
+                                  expert_first_name: { type: 'string' },
+                                  expert_last_name: { type: 'string' },
+                                  expert_credentials: { type: 'string' },
+                                  submitted_at: { type: 'string', format: 'date-time' },
+                                },
+                              },
+                            },
+                          },
+                        },
+                        attachments: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              attachment_id: { type: 'string', format: 'uuid' },
+                              file_name: { type: 'string' },
+                              file_url: { type: 'string' },
+                              file_size: { type: 'integer' },
+                              mime_type: { type: 'string' },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
           404: {
             description: 'Incident not found',

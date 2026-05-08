@@ -316,10 +316,9 @@ async function getIncident(req, res, next) {
     const incident = await assertOwnership(incident_id, reporterId, res);
     if (!incident) return;
 
-    // Fetch attachments and bid count concurrently
-    const [attachments, bidCount] = await Promise.all([
+    const [attachments, bids] = await Promise.all([
       AttachmentModel.findByIncident(incident_id),
-      BidModel.countByIncident(incident_id),
+      BidModel.findByIncident(incident_id),
     ]);
 
     res.status(200).json({
@@ -327,7 +326,8 @@ async function getIncident(req, res, next) {
       data: {
         incident: {
           ...incident,
-          bid_count: bidCount,
+          bid_count: bids.length,
+          bids,
         },
         attachments,
       },
