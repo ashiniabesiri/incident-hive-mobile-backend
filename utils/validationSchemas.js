@@ -77,7 +77,7 @@ const mfaVerifySchema = Joi.object({
 
 const mfaLoginSchema = Joi.object({
   email: emailField,
-  code: sixDigitCode,
+  otp_code: sixDigitCode,
 });
 
 // Safer biometric enrolment.

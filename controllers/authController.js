@@ -412,11 +412,11 @@ async function mfaVerify(req, res, next) {
 // ─── MFA Login ────────────────────────────────────────────────────────────────
 async function mfaLogin(req, res, next) {
   try {
-    const { email, code } = req.body;
+    const { email, otp_code } = req.body;
 
     const stored = await get(`${MFA_PREFIX}${email}`);
 
-    if (!stored || !timingSafeEqual(stored, code)) {
+    if (!stored || !timingSafeEqual(stored, otp_code)) {
       return sendError(
         res,
         401,
@@ -448,10 +448,15 @@ async function mfaLogin(req, res, next) {
     return res.status(200).json({
       success: true,
       data: {
-        message: 'MFA login successful.',
-        accessToken,
-        refreshToken,
-        user: formatUser(user),
+        user_id: user.user_id,
+        role: user.role,
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        token_type: 'Bearer',
+        expires_in: ACCESS_TTL,
+        biometric_enabled: false,
+        mfa_required: false,
+        session_timeout_seconds: SESSION_TTL,
       },
     });
   } catch (error) {

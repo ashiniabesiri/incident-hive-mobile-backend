@@ -524,28 +524,29 @@ const swaggerDefinition = {
     '/auth/mfa/login': {
       post: {
         tags: ['Auth'],
-        summary: 'Complete MFA login using email and MFA code',
+        summary: 'Complete MFA login using email and OTP code',
         requestBody: {
           required: true,
           content: {
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['email', 'code'],
+                required: ['email', 'otp_code'],
                 properties: {
                   email: {
                     type: 'string',
                     example: 'testuser10@example.com',
                   },
-                  code: {
+                  otp_code: {
                     type: 'string',
+                    description: '6-digit one-time password from email.',
                     example: '123456',
                   },
                 },
               },
               example: {
                 email: 'testuser10@example.com',
-                code: '123456',
+                otp_code: '123456',
               },
             },
           },
@@ -553,6 +554,13 @@ const swaggerDefinition = {
         responses: {
           200: {
             description: 'MFA login successful',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/LoginResponse',
+                },
+              },
+            },
           },
           401: {
             description: 'Invalid or expired MFA code',
