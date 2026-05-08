@@ -18,7 +18,8 @@
       "Bash(node -e \"const ts = require\\('./services/tokenService'\\); \\(async\\(\\)=>{ const t = await ts.generateRefreshToken\\('usr_test','dev_abc'\\); const d = require\\('jsonwebtoken'\\).decode\\(t\\); console.log\\('device_id:', d.device_id, '| sub:', d.sub, '| jti:', !!d.jti\\); }\\)\\(\\).catch\\(console.error\\)\")",
       "Bash(node -e \"const jwt = require\\('jsonwebtoken'\\); const token = jwt.sign\\({ sub:'usr_test', jti:'abc', type:'refresh', device_id:'dev_123' }, 'secret', { expiresIn: 100 }\\); const d = jwt.decode\\(token\\); console.log\\('device_id:', d.device_id, '| sub:', d.sub\\);\")",
       "Bash(node -e \"require\\('./controllers/authController'\\); require\\('./services/tokenService'\\); console.log\\('OK'\\)\")",
-      "Bash(node -e \"require\\('./services/tokenService'\\); require\\('./controllers/authController'\\); console.log\\('OK'\\)\")"
+      "Bash(node -e \"require\\('./services/tokenService'\\); require\\('./controllers/authController'\\); console.log\\('OK'\\)\")",
+      "Bash(node -e \"require\\('./controllers/authController'\\); console.log\\('OK'\\)\")"
     ]
   }
 }
