@@ -31,7 +31,8 @@
       "Bash(node -e \"require\\('./middleware/piiFilter'\\); require\\('./models/ExpertProfile'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
       "Bash(node -e \"require\\('./controllers/notificationController'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
       "Bash(powershell -Command \"\\(Get-Content controllers/authController.js\\).Count\")",
-      "Bash(node -e \"require\\('./controllers/authController'\\); require\\('./utils/validationSchemas'\\); require\\('./routes/authRoutes'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")"
+      "Bash(node -e \"require\\('./controllers/authController'\\); require\\('./utils/validationSchemas'\\); require\\('./routes/authRoutes'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
+      "Bash(node -e \"require\\('./controllers/adminController'\\); require\\('./routes/adminRoutes'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")"
     ]
   }
 }

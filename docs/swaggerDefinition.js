@@ -34,6 +34,7 @@ const swaggerDefinition = {
     { name: 'Expert Feed', description: 'Expert incident discovery and AI-ranked feed' },
     { name: 'Notifications', description: 'In-app notification centre' },
     { name: 'Content', description: 'News and testimonials' },
+    { name: 'Admin', description: 'Admin-only user and session management' },
     { name: 'System', description: 'Health check' },
   ],
 
@@ -353,6 +354,107 @@ const swaggerDefinition = {
           503: {
             description: 'System is degraded',
           },
+        },
+      },
+    },
+
+    '/admin/experts': {
+      post: {
+        tags: ['Admin'],
+        summary: 'Create expert account',
+        description: 'Admin-only. Creates a user with role=expert and an expert_profiles row.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['email', 'password', 'firstName', 'lastName'],
+                properties: {
+                  email: { type: 'string', format: 'email' },
+                  password: { type: 'string' },
+                  firstName: { type: 'string' },
+                  lastName: { type: 'string' },
+                  phoneNumber: { type: 'string' },
+                  credentials: { type: 'string', example: 'CISSP, CEH' },
+                  expertise_areas: { type: 'array', items: { type: 'string' }, example: ['Phishing', 'DDoS'] },
+                  bio: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: 'Expert account created' },
+          403: { description: 'Admin role required' },
+          409: { description: 'Email already exists' },
+          422: { description: 'Validation failed' },
+        },
+      },
+    },
+
+    '/admin/sessions/terminate': {
+      post: {
+        tags: ['Admin'],
+        summary: 'Terminate user sessions',
+        description: 'Admin-only. Revokes all tokens and sessions for the specified user, forcing re-authentication.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['user_id'],
+                properties: {
+                  user_id: { type: 'string', format: 'uuid' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'All sessions terminated' },
+          403: { description: 'Admin role required' },
+          404: { description: 'User not found' },
+        },
+      },
+    },
+
+    '/admin/users/{user_id}/status': {
+      patch: {
+        tags: ['Admin'],
+        summary: 'Suspend or reactivate user',
+        description: 'Admin-only. Changes account_status. Suspending also revokes all sessions.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'user_id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', format: 'uuid' },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['account_status'],
+                properties: {
+                  account_status: { type: 'string', enum: ['active', 'suspended'] },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Account status updated' },
+          403: { description: 'Admin role required' },
+          404: { description: 'User not found' },
+          422: { description: 'Validation failed' },
         },
       },
     },

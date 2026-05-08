@@ -29,6 +29,7 @@ const bidRoutes = require('./routes/bidRoutes');
 const expertRoutes = require('./routes/expertRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const contentRoutes = require('./routes/contentRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 // ── Global middleware ──────────────────────────────────────────────────────────
 const errorHandler = require('./middleware/errorHandler');
@@ -132,6 +133,7 @@ app.use(`${API_PREFIX}/incidents`, bidRoutes);
 app.use(API_PREFIX, expertRoutes);
 app.use(`${API_PREFIX}/notifications`, notificationRoutes);
 app.use(API_PREFIX, contentRoutes);
+app.use(`${API_PREFIX}/admin`, adminRoutes);
 
 // ── 404 handler ────────────────────────────────────────────────────────────────
 app.use((req, res) => {
