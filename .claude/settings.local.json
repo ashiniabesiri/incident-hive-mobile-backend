@@ -10,7 +10,10 @@
       "Bash(node -e \"require\\('./controllers/authController'\\); require\\('./utils/validationSchemas'\\); require\\('./middleware/rateLimit'\\); require\\('./routes/authRoutes'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
       "Bash(node -e \"require\\('./controllers/authController'\\); require\\('./utils/validationSchemas'\\); require\\('./services/tokenService'\\); require\\('./routes/authRoutes'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
       "Bash(node -e \"require\\('./controllers/authController'\\); require\\('./middleware/rateLimit'\\); require\\('./routes/authRoutes'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
-      "Bash(node -e \"require\\('./controllers/authController'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")"
+      "Bash(node -e \"require\\('./controllers/authController'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
+      "Bash(node -e \"require\\('./services/tokenService'\\); require\\('./controllers/authController'\\); require\\('./routes/authRoutes'\\); console.log\\('OK'\\)\")",
+      "Bash(node scripts/generate-keys.js)",
+      "Bash(node -e \"process.env.JWT_PRIVATE_KEY_PATH='./keys/private.pem'; process.env.JWT_PUBLIC_KEY_PATH='./keys/public.pem'; const ts = require\\('./services/tokenService'\\); const token = ts.generateAccessToken\\({userId:'test',email:'t@t.com',role:'reporter'}\\); const decoded = ts.verifyAccessToken\\(token\\); console.log\\('Algorithm check passed'\\); console.log\\('sub:', decoded.sub, 'role:', decoded.role\\);\")"
     ]
   }
 }
