@@ -747,6 +747,13 @@ const swaggerDefinition = {
         responses: {
           200: {
             description: 'Biometric login successful',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/LoginResponse',
+                },
+              },
+            },
           },
           401: {
             description: 'Biometric not enabled or account inactive',

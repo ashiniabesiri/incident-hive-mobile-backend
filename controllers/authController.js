@@ -717,13 +717,15 @@ async function biometricLogin(req, res, next) {
     return res.status(200).json({
       success: true,
       data: {
-        message: 'Biometric login successful.',
-        accessToken,
-        refreshToken,
-        user: {
-          ...formatUser(user),
-          biometricEnabled: true,
-        },
+        user_id: user.user_id,
+        role: user.role,
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        token_type: 'Bearer',
+        expires_in: ACCESS_TTL,
+        biometric_enabled: true,
+        mfa_required: false,
+        session_timeout_seconds: SESSION_TTL,
       },
     });
   } catch (error) {
