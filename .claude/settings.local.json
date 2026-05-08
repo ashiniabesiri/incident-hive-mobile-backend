@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\praka\\\\OneDrive\\\\Documents\\\\incident-hive-updated-backend \\(3\\)\\\\incident-hive-updated-backend\" -Recurse -Directory)",
+      "Bash(Select-Object FullName)",
+      "Bash(pip install *)",
+      "Bash(Get-ChildItem -Recurse -File)",
+      "Bash(node -e \"require\\('./controllers/authController'\\)\")"
+    ]
+  }
+}
