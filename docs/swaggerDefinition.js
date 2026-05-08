@@ -245,6 +245,12 @@ const swaggerDefinition = {
             type: 'number',
             example: 5000,
           },
+          currency: {
+            type: 'string',
+            enum: ['LKR', 'USD', 'EUR', 'GBP'],
+            default: 'LKR',
+            example: 'LKR',
+          },
           is_anonymous: {
             type: 'boolean',
             example: true,
@@ -280,6 +286,11 @@ const swaggerDefinition = {
           budget: {
             type: 'number',
             example: 6500,
+          },
+          currency: {
+            type: 'string',
+            enum: ['LKR', 'USD', 'EUR', 'GBP'],
+            example: 'LKR',
           },
           is_anonymous: {
             type: 'boolean',

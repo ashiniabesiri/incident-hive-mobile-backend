@@ -122,6 +122,7 @@ const ExpertProfileModel = {
          u.last_login_at,
          u.created_at             AS user_created_at,
          ep.credentials,
+         ep.bio,
          ep.expertise_areas,
          ep.availability_status,
          ep.completed_engagements,
@@ -197,6 +198,7 @@ const ExpertProfileModel = {
   async update(userId, fields) {
     const allowed = {
       credentials:        'credentials',
+      bio:                'bio',
       expertiseAreas:     'expertise_areas',
       availabilityStatus: 'availability_status',
     };

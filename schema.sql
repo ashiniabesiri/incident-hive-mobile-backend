@@ -54,6 +54,10 @@ CREATE INDEX IF NOT EXISTS idx_users_status ON users (account_status);
 ALTER TABLE users
 ADD COLUMN IF NOT EXISTS profile_picture_url TEXT;
 
+-- Add currency column to incidents if it doesn't exist
+ALTER TABLE incidents
+ADD COLUMN IF NOT EXISTS currency VARCHAR(10) NOT NULL DEFAULT 'LKR';
+
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 2. EXPERT_PROFILES TABLE
@@ -64,6 +68,7 @@ CREATE TABLE IF NOT EXISTS expert_profiles (
                             REFERENCES users(user_id) ON DELETE CASCADE,
 
     credentials             TEXT,
+    bio                     TEXT,
     expertise_areas         TEXT[]        NOT NULL DEFAULT '{}',
 
     availability_status     VARCHAR(20)   NOT NULL DEFAULT 'Available'
@@ -134,6 +139,7 @@ CREATE TABLE IF NOT EXISTS incidents (
 
     -- LKR value
     budget             DECIMAL(10,2),
+    currency           VARCHAR(10)   NOT NULL DEFAULT 'LKR',
 
     is_anonymous       BOOLEAN       NOT NULL DEFAULT false,
 

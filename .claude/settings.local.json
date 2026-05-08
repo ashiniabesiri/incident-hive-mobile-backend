@@ -19,7 +19,10 @@
       "Bash(node -e \"const jwt = require\\('jsonwebtoken'\\); const token = jwt.sign\\({ sub:'usr_test', jti:'abc', type:'refresh', device_id:'dev_123' }, 'secret', { expiresIn: 100 }\\); const d = jwt.decode\\(token\\); console.log\\('device_id:', d.device_id, '| sub:', d.sub\\);\")",
       "Bash(node -e \"require\\('./controllers/authController'\\); require\\('./services/tokenService'\\); console.log\\('OK'\\)\")",
       "Bash(node -e \"require\\('./services/tokenService'\\); require\\('./controllers/authController'\\); console.log\\('OK'\\)\")",
-      "Bash(node -e \"require\\('./controllers/authController'\\); console.log\\('OK'\\)\")"
+      "Bash(node -e \"require\\('./controllers/authController'\\); console.log\\('OK'\\)\")",
+      "Bash(node -e \"require\\('./controllers/profileController'\\); require\\('./models/ExpertProfile'\\); console.log\\('OK'\\)\")",
+      "Bash(node -e \"require\\('./controllers/profileController'\\); console.log\\('OK'\\)\")",
+      "Bash(node -e \"require\\('./models/Incident'\\); require\\('./controllers/incidentController'\\); console.log\\('OK'\\)\")"
     ]
   }
 }

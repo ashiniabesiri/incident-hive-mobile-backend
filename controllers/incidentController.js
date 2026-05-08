@@ -44,6 +44,7 @@ const createIncidentSchema = Joi.object({
       'any.required': 'incident_type is required.',
     }),
   budget:        Joi.number().precision(2).min(0).optional().allow(null),
+  currency:      Joi.string().valid('LKR', 'USD', 'EUR', 'GBP').default('LKR'),
   is_anonymous:  Joi.boolean().default(false),
 });
 
@@ -52,6 +53,7 @@ const updateIncidentSchema = Joi.object({
   description:   Joi.string().min(10).max(5000).trim(),
   incident_type: Joi.string().valid(...IncidentModel.VALID_TYPES),
   budget:        Joi.number().precision(2).min(0).allow(null),
+  currency:      Joi.string().valid('LKR', 'USD', 'EUR', 'GBP'),
   is_anonymous:  Joi.boolean(),
 }).min(1).messages({
   'object.min': 'At least one field must be provided to update.',
@@ -129,7 +131,7 @@ async function createIncident(req, res, next) {
     const body = validateBody(createIncidentSchema, req.body, res);
     if (!body) return;
 
-    const { title, description, incident_type, budget, is_anonymous } = body;
+    const { title, description, incident_type, budget, currency, is_anonymous } = body;
     const reporterId = req.user.userId;
 
     // ── 2. Create incident row ─────────────────────────────────────────────
@@ -139,6 +141,7 @@ async function createIncident(req, res, next) {
       title,
       description,
       budget,
+      currency,
       isAnonymous: is_anonymous,
     });
 
@@ -363,6 +366,7 @@ async function updateIncident(req, res, next) {
       description:  body.description,
       incidentType: body.incident_type,
       budget:       body.budget,
+      currency:     body.currency,
       isAnonymous:  body.is_anonymous,
     });
 

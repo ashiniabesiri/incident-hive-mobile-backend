@@ -15,6 +15,7 @@
  *     title            VARCHAR(150) NOT NULL,
  *     description      TEXT         NOT NULL,
  *     budget           DECIMAL(10,2),
+ *     currency         VARCHAR(10)  NOT NULL DEFAULT 'LKR',
  *     is_anonymous     BOOLEAN      NOT NULL DEFAULT false,
  *     status           VARCHAR(20)  NOT NULL DEFAULT 'Open'
  *                      CHECK (status IN ('Open','In Progress','Completed','Cancelled')),
@@ -59,15 +60,15 @@ const IncidentModel = {
    * @param {boolean} [params.isAnonymous]  Default false
    * @returns {Object} Created incident row
    */
-  async create({ reporterId, incidentType, title, description, budget = null, isAnonymous = false }) {
+  async create({ reporterId, incidentType, title, description, budget = null, currency = 'LKR', isAnonymous = false }) {
     const sql = `
       INSERT INTO incidents
-        (reporter_id, incident_type, title, description, budget, is_anonymous)
+        (reporter_id, incident_type, title, description, budget, currency, is_anonymous)
       VALUES
-        ($1, $2, $3, $4, $5, $6)
+        ($1, $2, $3, $4, $5, $6, $7)
       RETURNING
         incident_id, reporter_id, incident_type, title, description,
-        budget, is_anonymous, status, bid_window_ends_at, created_at, updated_at
+        budget, currency, is_anonymous, status, bid_window_ends_at, created_at, updated_at
     `;
     const { rows } = await query(sql, [
       reporterId,
@@ -75,6 +76,7 @@ const IncidentModel = {
       title,
       description,
       budget,
+      currency,
       isAnonymous,
     ]);
     return rows[0];
@@ -241,6 +243,7 @@ const IncidentModel = {
       title:         'title',
       description:   'description',
       budget:        'budget',
+      currency:      'currency',
       incidentType:  'incident_type',
       isAnonymous:   'is_anonymous',
       status:        'status',

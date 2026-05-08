@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const Joi = require('joi');
 
 const UserModel = require('../models/User');
+const ExpertProfileModel = require('../models/ExpertProfile');
 const TokenService = require('../services/tokenService');
 const { uploadFile } = require('../services/fileUploadService');
 const { sendAccountDeletionEmail } = require('../services/emailService');
@@ -17,6 +18,8 @@ const updateProfileSchema = Joi.object({
   firstName: Joi.string().min(1).max(100).trim(),
   lastName: Joi.string().min(1).max(100).trim(),
   phoneNumber: Joi.string().pattern(/^\+?[\d\s\-().]{7,20}$/).trim().allow(null, ''),
+  expertise_areas: Joi.array().items(Joi.string().trim().max(100)).max(20),
+  bio: Joi.string().max(2000).trim().allow(null, ''),
 }).min(1);
 
 const changePasswordSchema = Joi.object({
@@ -60,23 +63,33 @@ async function getProfile(req, res, next) {
       });
     }
 
-    return res.status(200).json({
-      success: true,
-      data: {
-        user_id: user.user_id,
-        name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-        first_name: user.first_name,
-        last_name: user.last_name,
-        email: user.email,
-        phone: user.phone_number,
-        role: user.role,
-        profile_picture_url: user.profile_picture_url || null,
-        biometric_enabled: false,
-        mfa_enabled: user.mfa_enabled,
-        email_verified: user.email_verified,
-        created_at: user.created_at,
-      },
-    });
+    const data = {
+      user_id: user.user_id,
+      name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+      first_name: user.first_name,
+      last_name: user.last_name,
+      email: user.email,
+      phone: user.phone_number,
+      role: user.role,
+      profile_picture_url: user.profile_picture_url || null,
+      biometric_enabled: false,
+      mfa_enabled: user.mfa_enabled,
+      email_verified: user.email_verified,
+      created_at: user.created_at,
+    };
+
+    if (user.role === 'expert') {
+      const expert = await ExpertProfileModel.findById(user.user_id);
+      if (expert) {
+        data.expertise_areas = expert.expertise_areas || [];
+        data.bio = expert.bio || null;
+        data.credentials = expert.credentials || null;
+        data.availability = expert.availability_status;
+        data.past_jobs_count = expert.completed_engagements;
+      }
+    }
+
+    return res.status(200).json({ success: true, data });
   } catch (error) {
     next(error);
   }
@@ -94,11 +107,19 @@ async function updateProfile(req, res, next) {
 
     if (error) return validationError(res, error);
 
-    const updated = await UserModel.updateProfile(req.user.userId, {
-      firstName: value.firstName,
-      lastName: value.lastName,
-      phoneNumber: value.phoneNumber,
-    });
+    const hasUserFields = value.firstName || value.lastName || value.phoneNumber !== undefined;
+    const hasExpertFields = value.expertise_areas || value.bio !== undefined;
+
+    let updated;
+    if (hasUserFields) {
+      updated = await UserModel.updateProfile(req.user.userId, {
+        firstName: value.firstName,
+        lastName: value.lastName,
+        phoneNumber: value.phoneNumber,
+      });
+    } else {
+      updated = await UserModel.findPublicById(req.user.userId);
+    }
 
     if (!updated) {
       return res.status(404).json({
@@ -110,18 +131,29 @@ async function updateProfile(req, res, next) {
       });
     }
 
-    return res.status(200).json({
-      success: true,
-      data: {
-        user_id: updated.user_id,
-        first_name: updated.first_name,
-        last_name: updated.last_name,
-        email: updated.email,
-        phone: updated.phone_number,
-        role: updated.role,
-        profile_picture_url: updated.profile_picture_url || null,
-      },
-    });
+    const data = {
+      user_id: updated.user_id,
+      first_name: updated.first_name,
+      last_name: updated.last_name,
+      email: updated.email,
+      phone: updated.phone_number,
+      role: updated.role,
+      profile_picture_url: updated.profile_picture_url || null,
+    };
+
+    if (updated.role === 'expert' && hasExpertFields) {
+      const expertUpdate = {};
+      if (value.expertise_areas) expertUpdate.expertiseAreas = value.expertise_areas;
+      if (value.bio !== undefined) expertUpdate.bio = value.bio;
+
+      const expert = await ExpertProfileModel.update(req.user.userId, expertUpdate);
+      if (expert) {
+        data.expertise_areas = expert.expertise_areas || [];
+        data.bio = expert.bio || null;
+      }
+    }
+
+    return res.status(200).json({ success: true, data });
   } catch (error) {
     next(error);
   }
@@ -215,8 +247,18 @@ async function uploadProfilePicture(req, res, next) {
 /**
  * DELETE /api/v1/profile
  */
+const deleteAccountSchema = Joi.object({
+  password: Joi.string().required(),
+});
+
 async function deleteAccount(req, res, next) {
   try {
+    const { error: valError } = deleteAccountSchema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: true,
+    });
+    if (valError) return validationError(res, valError);
+
     const user = await UserModel.findById(req.user.userId);
 
     if (!user) {
@@ -225,6 +267,17 @@ async function deleteAccount(req, res, next) {
         error: {
           code: 'USER_NOT_FOUND',
           message: 'User not found.',
+        },
+      });
+    }
+
+    const passwordMatch = await bcrypt.compare(req.body.password, user.password_hash);
+    if (!passwordMatch) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: 'INVALID_PASSWORD',
+          message: 'Password confirmation failed.',
         },
       });
     }
