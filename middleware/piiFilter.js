@@ -115,7 +115,8 @@ const EXPERT_PROFILE_PUBLIC_FIELDS = new Set([
   'user_id',
   'first_name',
   'last_name',
-  'profile_picture_url',  // nullable until DB column is added
+  'profile_picture_url',
+  'bio',
   'expertise_areas',
   'credentials',
   'availability_status',

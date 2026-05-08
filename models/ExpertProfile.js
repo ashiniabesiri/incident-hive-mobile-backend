@@ -119,6 +119,7 @@ const ExpertProfileModel = {
          u.role,
          u.email_verified,
          u.account_status,
+         u.profile_picture_url,
          u.last_login_at,
          u.created_at             AS user_created_at,
          ep.credentials,

@@ -27,7 +27,8 @@
       "Bash(node -e \"require\\('./controllers/incidentController'\\); console.log\\('OK'\\)\")",
       "Bash(node -e \"require\\('./models/Bid'\\); require\\('./controllers/incidentController'\\); console.log\\('OK'\\)\")",
       "Bash(node -e \"require\\('./middleware/rbac'\\); require\\('./routes/incidentRoutes'\\); console.log\\('OK'\\)\")",
-      "Bash(node -e \"require\\('./controllers/bidController'\\); require\\('./utils/validationSchemas'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")"
+      "Bash(node -e \"require\\('./controllers/bidController'\\); require\\('./utils/validationSchemas'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
+      "Bash(node -e \"require\\('./middleware/piiFilter'\\); require\\('./models/ExpertProfile'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")"
     ]
   }
 }

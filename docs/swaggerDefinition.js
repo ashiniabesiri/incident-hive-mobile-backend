@@ -1493,7 +1493,38 @@ const swaggerDefinition = {
         ],
         responses: {
           200: {
-            description: 'Expert profile returned',
+            description: 'Public expert profile with bio, credentials, and expertise areas',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        profile: {
+                          type: 'object',
+                          properties: {
+                            user_id: { type: 'string', format: 'uuid' },
+                            first_name: { type: 'string' },
+                            last_name: { type: 'string' },
+                            profile_picture_url: { type: 'string', nullable: true },
+                            bio: { type: 'string', nullable: true },
+                            expertise_areas: { type: 'array', items: { type: 'string' } },
+                            credentials: { type: 'string', nullable: true },
+                            availability_status: { type: 'string', enum: ['Available', 'Unavailable'] },
+                            completed_engagements: { type: 'integer' },
+                            total_earned: { type: 'number' },
+                            profile_created_at: { type: 'string', format: 'date-time' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
           404: {
             description: 'Expert profile not found',
