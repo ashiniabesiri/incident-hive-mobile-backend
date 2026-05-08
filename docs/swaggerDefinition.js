@@ -1137,6 +1137,7 @@ const swaggerDefinition = {
                   'I received a suspicious email asking me to reset my password using a suspicious link. I want an expert to check it.',
                 incident_type: 'Phishing',
                 budget: 6500,
+                currency: 'LKR',
                 is_anonymous: true,
               },
             },
@@ -1146,9 +1147,6 @@ const swaggerDefinition = {
           200: {
             description: 'Incident updated successfully',
           },
-          400: {
-            description: 'Validation failed',
-          },
           401: {
             description: 'Access token required',
           },
@@ -1156,7 +1154,10 @@ const swaggerDefinition = {
             description: 'Incident not found',
           },
           409: {
-            description: 'Incident cannot be edited',
+            description: 'Incident cannot be edited (non-Open status)',
+          },
+          422: {
+            description: 'Validation failed',
           },
         },
       },

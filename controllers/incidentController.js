@@ -82,10 +82,13 @@ function validateBody(schema, body, res) {
     stripUnknown: true,
   });
   if (error) {
-    res.status(400).json({
+    res.status(422).json({
       success: false,
-      message: 'Validation failed.',
-      errors:  error.details.map((d) => d.message.replace(/['"]/g, '')),
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Validation failed.',
+        details: error.details.map((d) => d.message.replace(/['"]/g, '')),
+      },
     });
     return null;
   }
@@ -102,7 +105,10 @@ async function assertOwnership(incidentId, reporterId, res) {
   if (!incident || incident.reporter_id !== reporterId) {
     res.status(404).json({
       success: false,
-      message: 'Incident not found.',
+      error: {
+        code: 'INCIDENT_NOT_FOUND',
+        message: 'Incident not found.',
+      },
     });
     return null;
   }
@@ -215,13 +221,19 @@ async function listIncidents(req, res, next) {
     if (status && !IncidentModel.VALID_STATUSES.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid status. Must be one of: ${IncidentModel.VALID_STATUSES.join(', ')}.`,
+        error: {
+          code: 'INVALID_STATUS',
+          message: `Invalid status. Must be one of: ${IncidentModel.VALID_STATUSES.join(', ')}.`,
+        },
       });
     }
     if (incident_type && !IncidentModel.VALID_TYPES.includes(incident_type)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid incident_type. Must be one of: ${IncidentModel.VALID_TYPES.join(', ')}.`,
+        error: {
+          code: 'INVALID_INCIDENT_TYPE',
+          message: `Invalid incident_type. Must be one of: ${IncidentModel.VALID_TYPES.join(', ')}.`,
+        },
       });
     }
 
@@ -358,7 +370,10 @@ async function updateIncident(req, res, next) {
     if (incident.status !== 'Open') {
       return res.status(409).json({
         success: false,
-        message: `Incident cannot be edited because its status is '${incident.status}'. Only 'Open' incidents can be updated.`,
+        error: {
+          code: 'INCIDENT_NOT_EDITABLE',
+          message: `Incident cannot be edited because its status is '${incident.status}'. Only 'Open' incidents can be updated.`,
+        },
       });
     }
 
@@ -421,7 +436,10 @@ async function updateStatus(req, res, next) {
     if (['Completed', 'Cancelled'].includes(incident.status)) {
       return res.status(409).json({
         success: false,
-        message: `Cannot change the status of an incident that is already '${incident.status}'.`,
+        error: {
+          code: 'STATUS_CHANGE_FORBIDDEN',
+          message: `Cannot change the status of an incident that is already '${incident.status}'.`,
+        },
       });
     }
 
@@ -460,7 +478,10 @@ async function deleteIncident(req, res, next) {
     if (incident.status !== 'Open') {
       return res.status(409).json({
         success: false,
-        message: `Only 'Open' incidents can be deleted. Current status: '${incident.status}'.`,
+        error: {
+          code: 'INCIDENT_NOT_DELETABLE',
+          message: `Only 'Open' incidents can be deleted. Current status: '${incident.status}'.`,
+        },
       });
     }
 
