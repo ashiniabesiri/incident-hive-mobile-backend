@@ -42,6 +42,7 @@ const {
   verifyEmailSchema,
   loginSchema,
   refreshSchema,
+  logoutSchema,
   changePasswordSchema,
   mfaVerifySchema,
   mfaLoginSchema,
@@ -142,6 +143,7 @@ router.post(
 router.post(
   '/logout',
   requireAuth,
+  validate(logoutSchema),
   controller.logout
 );
 

@@ -3,8 +3,9 @@ const { v4: uuidv4 } = require('uuid');
 const { set, get, del } = require('../config/redis');
 const logger         = require('../utils/logger');
 
-const REFRESH_PREFIX = 'refresh:';
-const SESSION_PREFIX = 'session:';
+const REFRESH_PREFIX    = 'refresh:';
+const SESSION_PREFIX    = 'session:';
+const BLACKLIST_PREFIX  = 'blacklist:';
 
 const ACCESS_TTL  = parseInt(process.env.ACCESS_TOKEN_TTL_SECONDS  || '900',    10);
 const REFRESH_TTL = parseInt(process.env.REFRESH_TOKEN_TTL_SECONDS || '604800', 10);
@@ -63,6 +64,24 @@ const TokenService = {
     const accessToken  = TokenService.generateAccessToken({ userId, email, role });
     const refreshToken = await TokenService.generateRefreshToken(userId);
     return { accessToken, refreshToken };
+  },
+
+  async blacklistRefreshToken(refreshTokenString) {
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshTokenString, process.env.JWT_REFRESH_SECRET);
+    } catch {
+      decoded = jwt.decode(refreshTokenString);
+    }
+
+    if (!decoded?.jti) return;
+
+    const remainingTtl = decoded.exp
+      ? Math.max(decoded.exp - Math.floor(Date.now() / 1000), 1)
+      : REFRESH_TTL;
+
+    await set(`${BLACKLIST_PREFIX}${decoded.jti}`, '1', remainingTtl);
+    await del(`${REFRESH_PREFIX}${decoded.sub}`);
   },
 
   async revokeAllTokens(userId) {

@@ -7,7 +7,8 @@
       "Bash(Get-ChildItem -Recurse -File)",
       "Bash(node -e \"require\\('./controllers/authController'\\)\")",
       "Bash(node -e \"require\\('./controllers/authController'\\); require\\('./utils/validationSchemas'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
-      "Bash(node -e \"require\\('./controllers/authController'\\); require\\('./utils/validationSchemas'\\); require\\('./middleware/rateLimit'\\); require\\('./routes/authRoutes'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")"
+      "Bash(node -e \"require\\('./controllers/authController'\\); require\\('./utils/validationSchemas'\\); require\\('./middleware/rateLimit'\\); require\\('./routes/authRoutes'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
+      "Bash(node -e \"require\\('./controllers/authController'\\); require\\('./utils/validationSchemas'\\); require\\('./services/tokenService'\\); require\\('./routes/authRoutes'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")"
     ]
   }
 }

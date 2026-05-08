@@ -340,6 +340,9 @@ async function refreshToken(req, res, next) {
 // ─── Logout ───────────────────────────────────────────────────────────────────
 async function logout(req, res, next) {
   try {
+    const { refresh_token } = req.body;
+
+    await TokenService.blacklistRefreshToken(refresh_token);
     await TokenService.revokeAllTokens(req.user.userId);
 
     return res.status(200).json({

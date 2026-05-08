@@ -633,11 +633,28 @@ const swaggerDefinition = {
     '/auth/logout': {
       post: {
         tags: ['Auth'],
-        summary: 'Logout user',
+        summary: 'Logout and revoke the Refresh Token',
         security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['refresh_token'],
+                properties: {
+                  refresh_token: {
+                    type: 'string',
+                    description: 'Active Refresh Token to be blacklisted via its jti claim.',
+                  },
+                },
+              },
+            },
+          },
+        },
         responses: {
           200: {
-            description: 'Logged out successfully',
+            description: 'Refresh Token revoked',
           },
           401: {
             description: 'Access token required',

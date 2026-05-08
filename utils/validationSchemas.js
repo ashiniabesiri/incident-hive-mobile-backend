@@ -57,6 +57,10 @@ const refreshSchema = Joi.object({
   device_id: Joi.string().min(3).max(255).required(),
 });
 
+const logoutSchema = Joi.object({
+  refresh_token: Joi.string().required(),
+});
+
 const changePasswordSchema = Joi.object({
   currentPassword: Joi.string().required(),
   newPassword: strongPassword,
@@ -149,6 +153,7 @@ module.exports = {
   verifyEmailSchema,
   loginSchema,
   refreshSchema,
+  logoutSchema,
   changePasswordSchema,
   mfaVerifySchema,
   mfaLoginSchema,
