@@ -33,6 +33,7 @@ const {
   loginLimiter,
   registerLimiter,
   refreshLimiter,
+  biometricEnrollLimiter,
   mfaLimiter,
   passwordLimiter,
 } = require('../middleware/rateLimit');
@@ -218,6 +219,7 @@ router.delete(
 router.post(
   '/biometric/register',
   requireAuth,
+  biometricEnrollLimiter,
   validate(biometricRegisterSchema),
   controller.biometricRegister
 );
@@ -231,6 +233,7 @@ router.post(
 router.post(
   '/biometric/enroll',
   requireAuth,
+  biometricEnrollLimiter,
   validate(biometricRegisterSchema),
   controller.biometricRegister
 );

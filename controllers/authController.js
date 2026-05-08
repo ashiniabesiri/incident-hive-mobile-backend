@@ -666,8 +666,6 @@ async function biometricRegister(req, res, next) {
     return res.status(200).json({
       success: true,
       data: {
-        message: 'Biometric login enabled for this device.',
-        device_id: device.device_id,
         biometric_enabled: device.biometric_enabled,
       },
     });

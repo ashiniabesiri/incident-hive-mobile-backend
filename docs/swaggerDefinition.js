@@ -691,10 +691,29 @@ const swaggerDefinition = {
         },
         responses: {
           200: {
-            description: 'Biometric login enabled',
+            description: 'Biometric flag set',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        biometric_enabled: { type: 'boolean', example: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
           401: {
-            description: 'Access token required',
+            description: 'Access Token missing or expired',
+          },
+          429: {
+            description: '3 attempts per 15 min (user_id + device_id)',
           },
         },
       },

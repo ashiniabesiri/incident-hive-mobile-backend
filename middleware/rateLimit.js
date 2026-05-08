@@ -60,6 +60,18 @@ const mfaLimiter = rateLimit({
   max: 10,
 });
 
+// 3 biometric enrolment attempts / 15 min per user_id + device_id
+const biometricEnrollLimiter = rateLimit({
+  ...commonOptions,
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  keyGenerator: (req) => {
+    const userId = req.user?.userId || 'unknown';
+    const deviceId = req.body?.device_id || 'unknown';
+    return `${userId}:${deviceId}`;
+  },
+});
+
 // 5 password changes / hour
 const passwordLimiter = rateLimit({
   ...commonOptions,
@@ -72,6 +84,7 @@ module.exports = {
   loginLimiter,
   registerLimiter,
   refreshLimiter,
+  biometricEnrollLimiter,
   mfaLimiter,
   passwordLimiter,
 };
