@@ -45,6 +45,14 @@ const registerLimiter = rateLimit({
   max: 3,
 });
 
+// 10 refresh attempts / 15 min per device_id
+const refreshLimiter = rateLimit({
+  ...commonOptions,
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => req.body?.device_id || req.ip,
+});
+
 // 10 OTP attempts / 15 min
 const mfaLimiter = rateLimit({
   ...commonOptions,
@@ -63,6 +71,7 @@ module.exports = {
   authLimiter,
   loginLimiter,
   registerLimiter,
+  refreshLimiter,
   mfaLimiter,
   passwordLimiter,
 };

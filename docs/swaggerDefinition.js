@@ -572,18 +572,24 @@ const swaggerDefinition = {
     '/auth/refresh': {
       post: {
         tags: ['Auth'],
-        summary: 'Refresh access token',
+        summary: 'Silently refresh the Access Token using the Refresh Token',
         requestBody: {
           required: true,
           content: {
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['refreshToken'],
+                required: ['refresh_token', 'device_id'],
                 properties: {
-                  refreshToken: {
+                  refresh_token: {
                     type: 'string',
+                    description: 'Current valid Refresh Token from encrypted device storage.',
                     example: 'refresh_token_here',
+                  },
+                  device_id: {
+                    type: 'string',
+                    description: 'Must match the device_id bound to the Refresh Token.',
+                    example: 'device_abc123',
                   },
                 },
               },
@@ -592,10 +598,33 @@ const swaggerDefinition = {
         },
         responses: {
           200: {
-            description: 'Tokens refreshed',
+            description: 'New token pair issued',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        access_token: { type: 'string' },
+                        refresh_token: { type: 'string' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
           401: {
-            description: 'Invalid or expired refresh token',
+            description: 'Token invalid, expired, or device_id mismatch',
+          },
+          403: {
+            description: 'Replay detected — entire token family revoked',
+          },
+          429: {
+            description: 'Rate limit exceeded (10 attempts / 15 min per device_id)',
           },
         },
       },

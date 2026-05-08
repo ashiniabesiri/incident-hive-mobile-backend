@@ -279,9 +279,19 @@ async function login(req, res, next) {
 // ─── Refresh Token ────────────────────────────────────────────────────────────
 async function refreshToken(req, res, next) {
   try {
-    const { refreshToken: incomingToken } = req.body;
+    const { refresh_token: incomingToken, device_id } = req.body;
 
-    const { userId } = await TokenService.validateRefreshToken(incomingToken);
+    const { userId, deviceId: tokenDeviceId } =
+      await TokenService.validateRefreshToken(incomingToken);
+
+    if (tokenDeviceId && tokenDeviceId !== device_id) {
+      return sendError(
+        res,
+        401,
+        'DEVICE_MISMATCH',
+        'device_id does not match the token.'
+      );
+    }
 
     const user = await UserModel.findById(userId);
 
@@ -297,16 +307,23 @@ async function refreshToken(req, res, next) {
     return res.status(200).json({
       success: true,
       data: {
-        message: 'Tokens refreshed.',
-        accessToken,
-        refreshToken: newRefreshToken,
+        access_token: accessToken,
+        refresh_token: newRefreshToken,
       },
     });
   } catch (error) {
+    if (error.code === 'TOKEN_REPLAY') {
+      return sendError(
+        res,
+        403,
+        'TOKEN_REPLAY',
+        error.message
+      );
+    }
+
     if (
       error.message.includes('refresh token') ||
-      error.message.includes('Token type mismatch') ||
-      error.message.includes('Token reuse detected')
+      error.message.includes('Token type mismatch')
     ) {
       return sendError(
         res,

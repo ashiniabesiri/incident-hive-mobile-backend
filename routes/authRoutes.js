@@ -32,6 +32,7 @@ const {
   authLimiter,
   loginLimiter,
   registerLimiter,
+  refreshLimiter,
   mfaLimiter,
   passwordLimiter,
 } = require('../middleware/rateLimit');
@@ -95,6 +96,7 @@ router.post(
  */
 router.post(
   '/refresh',
+  refreshLimiter,
   validate(refreshSchema),
   controller.refreshToken
 );

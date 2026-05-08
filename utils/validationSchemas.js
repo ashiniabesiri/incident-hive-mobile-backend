@@ -53,7 +53,8 @@ const loginSchema = Joi.object({
 });
 
 const refreshSchema = Joi.object({
-  refreshToken: Joi.string().required(),
+  refresh_token: Joi.string().required(),
+  device_id: Joi.string().min(3).max(255).required(),
 });
 
 const changePasswordSchema = Joi.object({

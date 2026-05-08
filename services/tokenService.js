@@ -48,13 +48,14 @@ const TokenService = {
     const stored = await get(`${REFRESH_PREFIX}${userId}`);
 
     if (!stored || stored !== token) {
-      // Possible replay — revoke everything
       await del(`${REFRESH_PREFIX}${userId}`, `${SESSION_PREFIX}${userId}`);
       logger.warn(`Refresh token replay detected for user ${userId}`);
-      throw new Error('Token reuse detected. All sessions revoked. Please log in again.');
+      const err = new Error('Token reuse detected. All sessions revoked. Please log in again.');
+      err.code = 'TOKEN_REPLAY';
+      throw err;
     }
 
-    return { userId };
+    return { userId, deviceId: decoded.device_id || null };
   },
 
   async rotateRefreshToken(userId, email, role) {
