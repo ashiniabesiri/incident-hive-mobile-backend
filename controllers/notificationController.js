@@ -44,25 +44,30 @@ async function getNotifications(req, res, next) {
       NotificationModel.countUnread(userId),
     ]);
 
+    // ── Alias body → message per API docs ────────────────────────────────
+    const mapped = notifications.map(({ body, ...rest }) => ({
+      ...rest,
+      message: body,
+    }));
+
     // ── Derive total for pagination ────────────────────────────────────────
-    // When unread_only=false we need the full total; use the full list length
-    // heuristic unless we're on the last page. For an exact count we make a
-    // second countUnread-style query only when necessary to keep it efficient.
     const total = notifications.length < limit
-      ? offset + notifications.length   // last page — exact total calculable
-      : null;                           // more pages exist — total not computed
+      ? offset + notifications.length
+      : null;
+    const totalPages = total !== null ? Math.ceil(total / limit) : null;
 
     res.status(200).json({
       success: true,
       data: {
-        notifications,
+        notifications: mapped,
         unread_count: unreadCount,
         pagination: {
           page,
           limit,
-          hasNextPage: notifications.length === limit,
-          hasPrevPage: page > 1,
           ...(total !== null && { total }),
+          ...(totalPages !== null && { total_pages: totalPages }),
+          has_next_page: notifications.length === limit,
+          has_prev_page: page > 1,
         },
       },
     });
@@ -94,7 +99,10 @@ async function markAsRead(req, res, next) {
     if (!notification) {
       return res.status(404).json({
         success: false,
-        message: 'Notification not found.',
+        error: {
+          code: 'NOTIFICATION_NOT_FOUND',
+          message: 'Notification not found.',
+        },
       });
     }
 

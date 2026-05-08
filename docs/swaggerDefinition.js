@@ -1567,6 +1567,48 @@ const swaggerDefinition = {
         responses: {
           200: {
             description: 'Notifications returned successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        notifications: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              notification_id: { type: 'string', format: 'uuid' },
+                              type: { type: 'string', enum: ['NEW_BID', 'BID_ACCEPTED', 'BID_DECLINED', 'INCIDENT_UPDATE'] },
+                              title: { type: 'string' },
+                              message: { type: 'string', description: 'Notification body text' },
+                              reference_id: { type: 'string', format: 'uuid', nullable: true },
+                              is_read: { type: 'boolean' },
+                              created_at: { type: 'string', format: 'date-time' },
+                            },
+                          },
+                        },
+                        unread_count: { type: 'integer' },
+                        pagination: {
+                          type: 'object',
+                          properties: {
+                            page: { type: 'integer' },
+                            limit: { type: 'integer' },
+                            total: { type: 'integer', nullable: true },
+                            total_pages: { type: 'integer', nullable: true },
+                            has_next_page: { type: 'boolean' },
+                            has_prev_page: { type: 'boolean' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       },
