@@ -2,12 +2,12 @@
  * routes/incidentRoutes.js
  * Express router for all /api/incidents/* endpoints.
  *
- * All routes require a valid JWT (requireAuth) and reporter-level access
- * (requireReporter). Ownership of individual incidents is enforced inside
+ * All routes require a valid JWT (requireAuth) and reporter-only access
+ * (requireReporterOnly — excludes experts). Ownership of individual incidents is enforced inside
  * each controller handler — a reporter cannot access another reporter's data.
  *
  * Middleware chain per route:
- *   requireAuth → requireReporter → [upload?] → controller
+ *   requireAuth → requireReporterOnly → [upload?] → controller
  *
  * File upload routes use the `upload` middleware from middleware/upload.js
  * BEFORE the controller so req.files is populated at handler time.
@@ -22,7 +22,7 @@ const { Router } = require('express');
 
 const controller = require('../controllers/incidentController');
 const { requireAuth }     = require('../middleware/auth');
-const { requireReporter } = require('../middleware/rbac');
+const { requireReporterOnly } = require('../middleware/rbac');
 const { upload }          = require('../middleware/upload');
 
 const router = Router();
@@ -30,7 +30,7 @@ const router = Router();
 // ─── Apply auth + role to the entire router ────────────────────────────────────
 // Every /api/incidents route requires a valid JWT and at minimum reporter role.
 router.use(requireAuth);
-router.use(requireReporter);
+router.use(requireReporterOnly);
 
 // ─── Routes ────────────────────────────────────────────────────────────────────
 

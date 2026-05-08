@@ -41,12 +41,14 @@ function requireRole(allowedRoles) {
 // requireReporter allows all authenticated app roles.
 // Do not change this now because other routes depend on it.
 const requireReporter = requireRole(['reporter', 'expert', 'admin']);
+const requireReporterOnly = requireRole(['reporter', 'admin']);
 const requireExpert = requireRole(['expert', 'admin']);
 const requireAdmin = requireRole(['admin']);
 
 module.exports = {
   requireRole,
   requireReporter,
+  requireReporterOnly,
   requireExpert,
   requireAdmin,
 };

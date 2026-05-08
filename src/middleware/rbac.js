@@ -40,8 +40,9 @@ function requireRole(allowedRoles) {
 /**
  * Convenience shortcuts
  */
-const requireReporter = requireRole(['reporter', 'expert', 'admin']);
-const requireExpert   = requireRole(['expert', 'admin']);
-const requireAdmin    = requireRole(['admin']);
+const requireReporter     = requireRole(['reporter', 'expert', 'admin']);
+const requireReporterOnly = requireRole(['reporter', 'admin']);
+const requireExpert       = requireRole(['expert', 'admin']);
+const requireAdmin        = requireRole(['admin']);
 
-module.exports = { requireRole, requireReporter, requireExpert, requireAdmin };
+module.exports = { requireRole, requireReporter, requireReporterOnly, requireExpert, requireAdmin };
