@@ -78,4 +78,7 @@ const TokenService = {
 
 };
 
+TokenService.ACCESS_TTL  = ACCESS_TTL;
+TokenService.SESSION_TTL = SESSION_TTL;
+
 module.exports = TokenService;

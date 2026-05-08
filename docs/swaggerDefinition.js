@@ -143,7 +143,7 @@ const swaggerDefinition = {
 
       LoginRequest: {
         type: 'object',
-        required: ['email', 'password'],
+        required: ['email', 'password', 'device_id'],
         properties: {
           email: {
             type: 'string',
@@ -152,6 +152,32 @@ const swaggerDefinition = {
           password: {
             type: 'string',
             example: 'Test@12345',
+          },
+          device_id: {
+            type: 'string',
+            description: 'Stable device identifier. Binds the Refresh Token to the device.',
+            example: 'device_abc123',
+          },
+        },
+      },
+
+      LoginResponse: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean', example: true },
+          data: {
+            type: 'object',
+            properties: {
+              user_id: { type: 'string', example: 'usr_a1b2c3d4' },
+              role: { type: 'string', example: 'reporter' },
+              access_token: { type: 'string', description: 'JWT Access Token valid 15 min.' },
+              refresh_token: { type: 'string', description: 'JWT Refresh Token valid 7 days, bound to device_id.' },
+              token_type: { type: 'string', example: 'Bearer' },
+              expires_in: { type: 'integer', example: 900, description: 'Access token lifetime in seconds.' },
+              biometric_enabled: { type: 'boolean', description: 'Whether biometric login is enrolled on this device.' },
+              mfa_required: { type: 'boolean', description: 'True if MFA challenge must be completed.' },
+              session_timeout_seconds: { type: 'integer', example: 1800 },
+            },
           },
         },
       },
@@ -401,12 +427,22 @@ const swaggerDefinition = {
         responses: {
           200: {
             description: 'Login successful or MFA required',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/LoginResponse',
+                },
+              },
+            },
           },
           401: {
-            description: 'Invalid email or password',
+            description: 'Invalid credentials',
           },
           403: {
             description: 'Email not verified or account suspended',
+          },
+          429: {
+            description: 'Rate limit exceeded',
           },
         },
       },
@@ -431,7 +467,7 @@ const swaggerDefinition = {
     '/auth/mfa/verify': {
       post: {
         tags: ['Auth'],
-        summary: 'Verify MFA setup code and enable MFA',
+        summary: 'Verify MFA OTP for step-up authentication',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -439,29 +475,47 @@ const swaggerDefinition = {
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['code'],
+                required: ['otp_code'],
                 properties: {
-                  code: {
+                  otp_code: {
                     type: 'string',
+                    description: '6-digit one-time password from email.',
                     example: '123456',
                   },
                 },
               },
               example: {
-                code: '123456',
+                otp_code: '123456',
               },
             },
           },
         },
         responses: {
           200: {
-            description: 'MFA enabled successfully',
-          },
-          400: {
-            description: 'Invalid or expired MFA code',
+            description: 'MFA verified. New token pair with updated amr claim issued.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        access_token: { type: 'string', description: 'New Access Token with amr claim.' },
+                        refresh_token: { type: 'string', description: 'New Refresh Token.' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
           401: {
-            description: 'Access token required',
+            description: 'Invalid or expired OTP',
+          },
+          403: {
+            description: 'MFA session expired. User must restart login.',
           },
         },
       },

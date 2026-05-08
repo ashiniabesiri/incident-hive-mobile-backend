@@ -34,7 +34,7 @@ const MFA_PREFIX = 'mfa:';
 
 const VERIFY_TTL = parseInt(process.env.EMAIL_VERIFICATION_TTL_SECONDS || '900', 10);
 const MFA_TTL = parseInt(process.env.MFA_OTP_TTL_SECONDS || '300', 10);
-const SESSION_TTL = parseInt(process.env.SESSION_TTL_SECONDS || '1800', 10);
+const { ACCESS_TTL, SESSION_TTL } = TokenService;
 
 // ─── Google OAuth client ──────────────────────────────────────────────────────
 const googleAuthClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -173,7 +173,7 @@ async function verifyEmail(req, res, next) {
 // ─── Login ────────────────────────────────────────────────────────────────────
 async function login(req, res, next) {
   try {
-    const { email, password } = req.body;
+    const { email, password, device_id } = req.body;
 
     const user = await UserModel.findByEmail(email);
 
@@ -212,6 +212,10 @@ async function login(req, res, next) {
       );
     }
 
+    // Look up biometric status for this device
+    const device = await UserDeviceModel.findByUserAndDevice(user.user_id, device_id);
+    const biometricEnabled = device?.biometric_enabled || false;
+
     if (user.mfa_enabled) {
       const mfaCode = generateOtp();
       await set(`${MFA_PREFIX}${email}`, mfaCode, MFA_TTL);
@@ -223,7 +227,7 @@ async function login(req, res, next) {
       return res.status(200).json({
         success: true,
         data: {
-          mfaRequired: true,
+          mfa_required: true,
           message:
             'An MFA code has been sent to your email. Please complete the second step.',
 
@@ -247,13 +251,24 @@ async function login(req, res, next) {
     await TokenService.touchSession(user.user_id);
     await UserModel.updateLastLogin(user.user_id);
 
+    // Register/touch the device on successful login
+    await UserDeviceModel.upsertDevice({
+      deviceId: device_id,
+      userId: user.user_id,
+    });
+
     return res.status(200).json({
       success: true,
       data: {
-        message: 'Login successful.',
-        accessToken,
-        refreshToken,
-        user: formatUser(user),
+        user_id: user.user_id,
+        role: user.role,
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        token_type: 'Bearer',
+        expires_in: ACCESS_TTL,
+        biometric_enabled: biometricEnabled,
+        mfa_required: false,
+        session_timeout_seconds: SESSION_TTL,
       },
     });
   } catch (error) {
@@ -354,17 +369,17 @@ async function mfaSetup(req, res, next) {
 // ─── MFA Verify ───────────────────────────────────────────────────────────────
 async function mfaVerify(req, res, next) {
   try {
-    const { userId, email } = req.user;
-    const { code } = req.body;
+    const { userId, email, role } = req.user;
+    const { otp_code } = req.body;
 
     const stored = await get(`${MFA_PREFIX}${email}`);
 
-    if (!stored || !timingSafeEqual(stored, code)) {
+    if (!stored || !timingSafeEqual(stored, otp_code)) {
       return sendError(
         res,
-        400,
+        401,
         'INVALID_MFA_CODE',
-        'Invalid or expired MFA code.'
+        'Invalid or expired OTP.'
       );
     }
 
@@ -374,10 +389,19 @@ async function mfaVerify(req, res, next) {
     await UserModel.enableMfa(userId, mfaSecret);
     await del(`${MFA_PREFIX}${email}`);
 
+    const accessToken = TokenService.generateAccessToken({
+      userId,
+      email,
+      role,
+      amr: ['pwd', 'mfa'],
+    });
+    const refreshToken = await TokenService.generateRefreshToken(userId);
+
     return res.status(200).json({
       success: true,
       data: {
-        message: 'MFA has been successfully enabled on your account.',
+        access_token: accessToken,
+        refresh_token: refreshToken,
       },
     });
   } catch (error) {

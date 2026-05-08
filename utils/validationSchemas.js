@@ -49,6 +49,7 @@ const verifyEmailSchema = Joi.object({
 const loginSchema = Joi.object({
   email: emailField,
   password: Joi.string().required(),
+  device_id: Joi.string().min(3).max(255).required(),
 });
 
 const refreshSchema = Joi.object({
@@ -71,7 +72,7 @@ const changePasswordSchema = Joi.object({
   });
 
 const mfaVerifySchema = Joi.object({
-  code: sixDigitCode,
+  otp_code: sixDigitCode,
 });
 
 const mfaLoginSchema = Joi.object({

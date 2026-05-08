@@ -5,7 +5,8 @@
       "Bash(Select-Object FullName)",
       "Bash(pip install *)",
       "Bash(Get-ChildItem -Recurse -File)",
-      "Bash(node -e \"require\\('./controllers/authController'\\)\")"
+      "Bash(node -e \"require\\('./controllers/authController'\\)\")",
+      "Bash(node -e \"require\\('./controllers/authController'\\); require\\('./utils/validationSchemas'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")"
     ]
   }
 }
