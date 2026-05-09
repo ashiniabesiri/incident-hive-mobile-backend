@@ -155,7 +155,9 @@ async function listBids(req, res, next) {
           total,
           page,
           limit,
-          totalPages: Math.ceil(total / limit),
+          total_pages: Math.ceil(total / limit),
+          has_next_page: page < Math.ceil(total / limit),
+          has_prev_page: page > 1,
         },
       },
     });

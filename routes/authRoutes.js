@@ -30,10 +30,12 @@ const { validate } = require('../middleware/validation');
 
 const {
   authLimiter,
+  verifyEmailLimiter,
   loginLimiter,
   registerLimiter,
   refreshLimiter,
   biometricEnrollLimiter,
+  biometricLoginLimiter,
   mfaLimiter,
   passwordLimiter,
 } = require('../middleware/rateLimit');
@@ -49,6 +51,7 @@ const {
   mfaLoginSchema,
   biometricRegisterSchema,
   biometricLoginSchema,
+  googleLoginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
 } = require('../utils/validationSchemas');
@@ -79,6 +82,7 @@ router.post(
  */
 router.post(
   '/verify-email',
+  verifyEmailLimiter,
   validate(verifyEmailSchema),
   controller.verifyEmail
 );
@@ -122,6 +126,7 @@ router.post(
  */
 router.post(
   '/biometric/login',
+  biometricLoginLimiter,
   validate(biometricLoginSchema),
   controller.biometricLogin
 );
@@ -132,6 +137,7 @@ router.post(
  */
 router.post(
   '/google',
+  validate(googleLoginSchema),
   controller.googleLogin
 );
 

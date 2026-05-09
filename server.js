@@ -5,6 +5,7 @@
 
 require('dotenv').config();
 
+const crypto = require('crypto');
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -40,18 +41,24 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const API_PREFIX = process.env.API_PREFIX || '/api/v1';
 
+// ── Per-request CSP nonce ──────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  res.locals.cspNonce = crypto.randomBytes(16).toString('base64');
+  next();
+});
+
 // ── Security headers ───────────────────────────────────────────────────────────
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.cspNonce}'`],
+        styleSrc: ["'self'", (req, res) => `'nonce-${res.locals.cspNonce}'`],
         imgSrc: ["'self'", 'data:', 'https:'],
       },
     },
-    crossOriginEmbedderPolicy: false,
+    crossOriginEmbedderPolicy: true,
   })
 );
 
@@ -78,15 +85,24 @@ app.use(
   })
 );
 
-// ── Swagger / OpenAPI docs ─────────────────────────────────────────────────────
-app.use(
-  '/api-docs',
-  swaggerUi.serve,
-  swaggerUi.setup(swaggerDefinition, {
-    customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'Incident Hive API Docs',
-  })
-);
+// ── Swagger / OpenAPI docs (disabled in production) ──────────────────────────
+if (process.env.NODE_ENV !== 'production') {
+  app.use(
+    '/api-docs',
+    (req, res, next) => {
+      res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;"
+      );
+      next();
+    },
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerDefinition, {
+      customCss: '.swagger-ui .topbar { display: none }',
+      customSiteTitle: 'Incident Hive API Docs',
+    })
+  );
+}
 
 // ── Health check ───────────────────────────────────────────────────────────────
 app.get('/health', async (req, res) => {

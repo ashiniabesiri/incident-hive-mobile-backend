@@ -38,7 +38,27 @@
       "Bash(node -e \"require\\('./models/Notification'\\); require\\('./controllers/notificationController'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
       "Bash(node -e \"require\\('./models/User'\\); require\\('./controllers/adminController'\\); require\\('./routes/adminRoutes'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
       "Bash(node -e \"require\\('./services/tokenService'\\); require\\('./middleware/auth'\\); require\\('./controllers/authController'\\); console.log\\('OK'\\)\")",
-      "Bash(node -e \"require\\('./utils/validationSchemas'\\); require\\('./services/tokenService'\\); require\\('./controllers/authController'\\); console.log\\('OK'\\)\")"
+      "Bash(node -e \"require\\('./utils/validationSchemas'\\); require\\('./services/tokenService'\\); require\\('./controllers/authController'\\); console.log\\('OK'\\)\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\praka\\\\OneDrive\\\\Documents\\\\incident-hive-updated-backend \\(3\\)\\\\incident-hive-updated-backend\" -Recurse -File -Include \"*.sql\", \"*.js\", \".env*\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(find /c/Users/praka/OneDrive/Documents -name \"incidentRoutes.js\" -o -name \"incidentController.js\" -o -name \"bidController.js\" -o -name \"Incident.js\" -o -name \"Bid.js\" -o -name \"validationSchemas.js\" -o -name \"swaggerDefinition.js\" 2>/dev/null | head -20)",
+      "Bash(node -e \"require\\('./middleware/rateLimit'\\)\")",
+      "Bash(node -e \"require\\('./routes/authRoutes'\\)\")",
+      "Bash(node -e \"require\\('./config/database'\\)\")",
+      "Bash(node -e \"require\\('./controllers/bidController'\\)\")",
+      "Bash(node -e \"require\\('./utils/validationSchemas'\\)\")",
+      "Bash(node -e \"require\\('./controllers/incidentController'\\)\")",
+      "Bash(node -e \"const s = require\\('./docs/swaggerDefinition'\\); console.log\\(Object.keys\\(s.paths\\).filter\\(p => p.includes\\('google'\\)\\)\\)\")",
+      "Bash(node -e \"const s = require\\('./docs/swaggerDefinition'\\); const reg = s.components.schemas.RegisterRequest.properties; const mfa = s.paths['/auth/mfa/login'].post.requestBody.content['application/json'].schema.properties; console.log\\('RegisterRequest has device_id:', 'device_id' in reg\\); console.log\\('mfa/login has device_id:', 'device_id' in mfa\\);\")",
+      "Bash(node -e \"const s = require\\('./docs/swaggerDefinition'\\); const ci = s.components.schemas.CreateIncidentRequest; const ref = s.paths['/auth/refresh'].post.responses['200'].content['application/json'].schema.properties.data.properties; const mfa = s.paths['/auth/mfa/verify'].post.responses['200'].content['application/json'].schema.properties.data.properties; console.log\\('CreateIncident required:', ci.required\\); console.log\\('refresh has token_type:', 'token_type' in ref\\); console.log\\('refresh has expires_in:', 'expires_in' in ref\\); console.log\\('refresh has session_timeout:', 'session_timeout_seconds' in ref\\); console.log\\('mfa/verify has token_type:', 'token_type' in mfa\\); console.log\\('mfa/verify has expires_in:', 'expires_in' in mfa\\); console.log\\('mfa/verify has session_timeout:', 'session_timeout_seconds' in mfa\\);\")",
+      "Bash(node -e \"require\\('./server'\\)\")",
+      "Bash(node -c server.js)",
+      "Bash(node -e \"const s = require\\('./docs/swaggerDefinition'\\); const legacy = ['/auth/profile','/auth/change-password','/auth/account','/auth/biometric/register']; legacy.forEach\\(p => { const method = Object.keys\\(s.paths[p]\\)[0]; console.log\\(p, '→ deprecated:', s.paths[p][method].deprecated\\); }\\);\")",
+      "Bash(node -e \"require\\('./controllers/notificationController'\\)\")",
+      "Bash(node -e \"require\\('./controllers/adminController'\\)\")",
+      "Bash(node -e \"require\\('./controllers/profileController'\\)\")",
+      "Bash(node -e \"require\\('./docs/swaggerDefinition'\\)\")"
     ]
   }
 }

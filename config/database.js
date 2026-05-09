@@ -24,7 +24,12 @@ async function connectDB() {
     connectionTimeoutMillis: 5_000,
     ssl:
       process.env.NODE_ENV === 'production'
-        ? { rejectUnauthorized: false }
+        ? {
+            rejectUnauthorized: true,
+            ...(process.env.DB_SSL_CA_PATH && {
+              ca: fs.readFileSync(process.env.DB_SSL_CA_PATH, 'utf8'),
+            }),
+          }
         : false,
   });
 

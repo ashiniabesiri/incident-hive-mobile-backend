@@ -4,6 +4,7 @@
  */
 
 const bcrypt = require('bcryptjs');
+const Joi = require('joi');
 const { OAuth2Client } = require('google-auth-library');
 const crypto = require('crypto');
 
@@ -510,15 +511,6 @@ async function googleLogin(req, res, next) {
   try {
     const { idToken, device_id } = req.body;
 
-    if (!idToken) {
-      return sendError(
-        res,
-        400,
-        'GOOGLE_ID_TOKEN_REQUIRED',
-        'Google ID token is required.'
-      );
-    }
-
     let payload;
 
     try {
@@ -657,9 +649,49 @@ async function changePassword(req, res, next) {
 }
 
 // ─── Account Deletion ─────────────────────────────────────────────────────────
+const deleteAccountSchema = Joi.object({
+  password: Joi.string().required(),
+  confirm_deletion: Joi.boolean().valid(true).required().messages({
+    'any.only': 'confirm_deletion must be true to delete your account.',
+  }),
+});
+
 async function deleteAccount(req, res, next) {
   try {
+    const { error: valError } = deleteAccountSchema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: true,
+    });
+
+    if (valError) {
+      return res.status(422).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed.',
+          details: valError.details.map((d) => d.message.replace(/['"]/g, '')),
+        },
+      });
+    }
+
     const { userId, email } = req.user;
+    const { password } = req.body;
+
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'USER_NOT_FOUND', message: 'User not found.' },
+      });
+    }
+
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) {
+      return res.status(401).json({
+        success: false,
+        error: { code: 'INVALID_PASSWORD', message: 'Incorrect password.' },
+      });
+    }
 
     sendAccountDeletionEmail(email).catch((err) =>
       logger.error('Failed to send account deletion email:', err)

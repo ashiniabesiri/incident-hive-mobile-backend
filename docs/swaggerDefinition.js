@@ -100,6 +100,11 @@ const swaggerDefinition = {
             example: '+94771234567',
             description: 'Optional. Phone in E.164 format.',
           },
+          device_id: {
+            type: 'string',
+            example: 'android_pixel_001',
+            description: 'Optional device identifier for refresh-token binding.',
+          },
         },
       },
 
@@ -255,7 +260,7 @@ const swaggerDefinition = {
 
       CreateIncidentRequest: {
         type: 'object',
-        required: ['title', 'description', 'incident_type', 'budget', 'is_anonymous'],
+        required: ['title', 'description', 'incident_type'],
         properties: {
           title: {
             type: 'string',
@@ -937,6 +942,9 @@ const swaggerDefinition = {
                       properties: {
                         access_token: { type: 'string', description: 'New Access Token with amr claim.' },
                         refresh_token: { type: 'string', description: 'New Refresh Token.' },
+                        token_type: { type: 'string', example: 'Bearer' },
+                        expires_in: { type: 'integer', example: 900, description: 'Access token TTL in seconds.' },
+                        session_timeout_seconds: { type: 'integer', example: 1800, description: 'Server-side session idle timeout.' },
                       },
                     },
                   },
@@ -975,11 +983,17 @@ const swaggerDefinition = {
                     description: '6-digit one-time password from email.',
                     example: '123456',
                   },
+                  device_id: {
+                    type: 'string',
+                    description: 'Optional device identifier for refresh-token binding.',
+                    example: 'android_pixel_001',
+                  },
                 },
               },
               example: {
                 email: 'testuser10@example.com',
                 otp_code: '123456',
+                device_id: 'android_pixel_001',
               },
             },
           },
@@ -1043,6 +1057,9 @@ const swaggerDefinition = {
                       properties: {
                         access_token: { type: 'string' },
                         refresh_token: { type: 'string' },
+                        token_type: { type: 'string', example: 'Bearer' },
+                        expires_in: { type: 'integer', example: 900, description: 'Access token TTL in seconds.' },
+                        session_timeout_seconds: { type: 'integer', example: 1800, description: 'Server-side session idle timeout.' },
                       },
                     },
                   },
@@ -1196,6 +1213,131 @@ const swaggerDefinition = {
       },
     },
 
+    '/auth/google': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Login or register via Google Sign-In',
+        description:
+          'Verifies the Google ID token, creates the account if it does not exist, and returns access/refresh tokens. The account is automatically email-verified.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['idToken'],
+                properties: {
+                  idToken: {
+                    type: 'string',
+                    description: 'Google ID token obtained from the client-side Google Sign-In SDK.',
+                    example: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...',
+                  },
+                  device_id: {
+                    type: 'string',
+                    description: 'Optional device identifier for refresh-token binding.',
+                    example: 'android_pixel_001',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Google login successful. Returns tokens and user info.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        user_id: { type: 'string', format: 'uuid' },
+                        role: { type: 'string', example: 'reporter' },
+                        user_type: { type: 'string', example: 'reporter' },
+                        access_token: { type: 'string' },
+                        refresh_token: { type: 'string' },
+                        token_type: { type: 'string', example: 'Bearer' },
+                        expires_in: { type: 'integer', example: 900 },
+                        biometric_enabled: { type: 'boolean', example: false },
+                        mfa_required: { type: 'boolean', example: false },
+                        session_timeout_seconds: { type: 'integer', example: 1800 },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          400: {
+            description: 'Missing or invalid Google ID token.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'GOOGLE_ID_TOKEN_REQUIRED' },
+                        message: { type: 'string', example: 'Google ID token is required.' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: {
+            description: 'Invalid token or unverified Google email.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: {
+                          type: 'string',
+                          enum: ['INVALID_GOOGLE_TOKEN', 'GOOGLE_EMAIL_NOT_VERIFIED'],
+                        },
+                        message: { type: 'string' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          403: {
+            description: 'Account suspended or inactive.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'ACCOUNT_NOT_ACTIVE' },
+                        message: { type: 'string' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
     '/auth/forgot-password': {
       post: {
         tags: ['Auth'],
@@ -1261,6 +1403,112 @@ const swaggerDefinition = {
           429: {
             description: 'Rate limit exceeded',
           },
+        },
+      },
+    },
+
+    // ── Legacy auth routes (deprecated) ──────────────────────────────────────────
+    '/auth/profile': {
+      get: {
+        tags: ['Auth'],
+        summary: '[Deprecated] Get authenticated user profile',
+        deprecated: true,
+        description: 'Use GET /profile instead.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Profile returned successfully.' },
+          401: { description: 'Access token required.' },
+        },
+      },
+    },
+
+    '/auth/change-password': {
+      post: {
+        tags: ['Auth'],
+        summary: '[Deprecated] Change password',
+        deprecated: true,
+        description: 'Use PUT /profile/password instead.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['currentPassword', 'newPassword'],
+                properties: {
+                  currentPassword: { type: 'string' },
+                  newPassword: { type: 'string', description: 'Must have uppercase, lowercase, number, and special char.' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Password changed. All sessions revoked.' },
+          401: { description: 'Current password incorrect.' },
+          422: { description: 'Validation failed.' },
+          429: { description: 'Rate limit exceeded (5/hour).' },
+        },
+      },
+    },
+
+    '/auth/account': {
+      delete: {
+        tags: ['Auth'],
+        summary: '[Deprecated] Delete account',
+        deprecated: true,
+        description: 'Use DELETE /profile instead.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['password', 'confirm_deletion'],
+                properties: {
+                  password: { type: 'string' },
+                  confirm_deletion: { type: 'boolean', example: true, description: 'Must be true.' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Account anonymised. All sessions revoked.' },
+          401: { description: 'Incorrect password.' },
+          422: { description: 'Validation failed.' },
+        },
+      },
+    },
+
+    '/auth/biometric/register': {
+      post: {
+        tags: ['Auth'],
+        summary: '[Deprecated] Register biometric device',
+        deprecated: true,
+        description: 'Use POST /auth/biometric/enroll instead.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['device_id'],
+                properties: {
+                  device_id: { type: 'string', example: 'android_pixel_001' },
+                  device_name: { type: 'string', example: 'My Pixel 8' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Biometric enabled for device.' },
+          401: { description: 'Access token required.' },
+          429: { description: 'Rate limit exceeded (3/15min per user+device).' },
         },
       },
     },

@@ -72,6 +72,26 @@ const biometricEnrollLimiter = rateLimit({
   },
 });
 
+// 5 email verification attempts / 15 min per email
+const verifyEmailLimiter = rateLimit({
+  ...commonOptions,
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => req.body?.email?.toLowerCase() || req.ip,
+});
+
+// 5 biometric login attempts / 15 min per user_id + device_id
+const biometricLoginLimiter = rateLimit({
+  ...commonOptions,
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => {
+    const userId = req.body?.user_id || 'unknown';
+    const deviceId = req.body?.device_id || 'unknown';
+    return `bio-login:${userId}:${deviceId}`;
+  },
+});
+
 // 5 password changes / hour
 const passwordLimiter = rateLimit({
   ...commonOptions,
@@ -81,10 +101,12 @@ const passwordLimiter = rateLimit({
 
 module.exports = {
   authLimiter,
+  verifyEmailLimiter,
   loginLimiter,
   registerLimiter,
   refreshLimiter,
   biometricEnrollLimiter,
+  biometricLoginLimiter,
   mfaLimiter,
   passwordLimiter,
 };
