@@ -39,6 +39,7 @@ const registerSchema = Joi.object({
     .messages({
       'string.pattern.base': 'Provide a valid phone number.',
     }),
+  device_id: Joi.string().min(3).max(255).optional().allow(null, ''),
 });
 
 const verifyEmailSchema = Joi.object({
@@ -79,11 +80,13 @@ const changePasswordSchema = Joi.object({
 const mfaVerifySchema = Joi.object({
   otp_code: sixDigitCode.optional(),
   mfa_code: sixDigitCode.optional(),
+  device_id: Joi.string().min(3).max(255).optional().allow(null, ''),
 }).or('otp_code', 'mfa_code');
 
 const mfaLoginSchema = Joi.object({
   email: emailField,
   otp_code: sixDigitCode,
+  device_id: Joi.string().min(3).max(255).optional().allow(null, ''),
 });
 
 // Safer biometric enrolment.

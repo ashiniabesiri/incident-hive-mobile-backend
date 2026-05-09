@@ -70,7 +70,7 @@ function formatUser(user) {
 // ─── Register ─────────────────────────────────────────────────────────────────
 async function register(req, res, next) {
   try {
-    const { email, password, firstName, lastName, phoneNumber } = req.body;
+    const { email, password, firstName, lastName, phoneNumber, device_id } = req.body;
 
     const existing = await UserModel.findByEmail(email);
 
@@ -98,7 +98,7 @@ async function register(req, res, next) {
       email: user.email,
       role: user.role,
     });
-    const refreshToken = await TokenService.generateRefreshToken(user.user_id);
+    const refreshToken = await TokenService.generateRefreshToken(user.user_id, device_id || null);
     await TokenService.touchSession(user.user_id);
 
     const code = generateOtp();
@@ -317,13 +317,16 @@ async function refreshToken(req, res, next) {
       data: {
         access_token: accessToken,
         refresh_token: newRefreshToken,
+        token_type: 'Bearer',
+        expires_in: TokenService.ACCESS_TTL,
+        session_timeout_seconds: TokenService.SESSION_TTL,
       },
     });
   } catch (error) {
     if (error.code === 'TOKEN_REPLAY') {
       return sendError(
         res,
-        403,
+        409,
         'TOKEN_REPLAY',
         error.message
       );
@@ -427,13 +430,16 @@ async function mfaVerify(req, res, next) {
       role,
       amr: ['pwd', 'mfa'],
     });
-    const refreshToken = await TokenService.generateRefreshToken(userId);
+    const refreshToken = await TokenService.generateRefreshToken(userId, req.body.device_id || null);
 
     return res.status(200).json({
       success: true,
       data: {
         access_token: accessToken,
         refresh_token: refreshToken,
+        token_type: 'Bearer',
+        expires_in: TokenService.ACCESS_TTL,
+        session_timeout_seconds: TokenService.SESSION_TTL,
       },
     });
   } catch (error) {
@@ -444,7 +450,7 @@ async function mfaVerify(req, res, next) {
 // ─── MFA Login ────────────────────────────────────────────────────────────────
 async function mfaLogin(req, res, next) {
   try {
-    const { email, otp_code } = req.body;
+    const { email, otp_code, device_id } = req.body;
 
     const stored = await get(`${MFA_PREFIX}${email}`);
 
@@ -472,10 +478,12 @@ async function mfaLogin(req, res, next) {
       amr: ['pwd', 'mfa'],
     });
 
-    const refreshToken = await TokenService.generateRefreshToken(user.user_id);
+    const refreshToken = await TokenService.generateRefreshToken(user.user_id, device_id || null);
 
     await TokenService.touchSession(user.user_id);
     await UserModel.updateLastLogin(user.user_id);
+
+    const mfaDevice = device_id ? await UserDeviceModel.findByUserAndDevice(user.user_id, device_id) : null;
 
     return res.status(200).json({
       success: true,
@@ -487,7 +495,7 @@ async function mfaLogin(req, res, next) {
         refresh_token: refreshToken,
         token_type: 'Bearer',
         expires_in: ACCESS_TTL,
-        biometric_enabled: false,
+        biometric_enabled: mfaDevice?.biometric_enabled || false,
         mfa_required: false,
         session_timeout_seconds: SESSION_TTL,
       },
@@ -500,7 +508,7 @@ async function mfaLogin(req, res, next) {
 // ─── Google Sign-In ───────────────────────────────────────────────────────────
 async function googleLogin(req, res, next) {
   try {
-    const { idToken } = req.body;
+    const { idToken, device_id } = req.body;
 
     if (!idToken) {
       return sendError(
@@ -582,10 +590,12 @@ async function googleLogin(req, res, next) {
       amr: ['google'],
     });
 
-    const refreshToken = await TokenService.generateRefreshToken(user.user_id);
+    const refreshToken = await TokenService.generateRefreshToken(user.user_id, device_id || null);
 
     await TokenService.touchSession(user.user_id);
     await UserModel.updateLastLogin(user.user_id);
+
+    const googleDevice = device_id ? await UserDeviceModel.findByUserAndDevice(user.user_id, device_id) : null;
 
     return res.status(200).json({
       success: true,
@@ -597,7 +607,7 @@ async function googleLogin(req, res, next) {
         refresh_token: refreshToken,
         token_type: 'Bearer',
         expires_in: ACCESS_TTL,
-        biometric_enabled: false,
+        biometric_enabled: googleDevice?.biometric_enabled || false,
         mfa_required: false,
         session_timeout_seconds: SESSION_TTL,
       },

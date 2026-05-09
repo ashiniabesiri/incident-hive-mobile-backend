@@ -37,7 +37,8 @@
       "Bash(node -e \"require\\('./middleware/piiFilter'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
       "Bash(node -e \"require\\('./models/Notification'\\); require\\('./controllers/notificationController'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
       "Bash(node -e \"require\\('./models/User'\\); require\\('./controllers/adminController'\\); require\\('./routes/adminRoutes'\\); require\\('./docs/swaggerDefinition'\\); console.log\\('OK'\\)\")",
-      "Bash(node -e \"require\\('./services/tokenService'\\); require\\('./middleware/auth'\\); require\\('./controllers/authController'\\); console.log\\('OK'\\)\")"
+      "Bash(node -e \"require\\('./services/tokenService'\\); require\\('./middleware/auth'\\); require\\('./controllers/authController'\\); console.log\\('OK'\\)\")",
+      "Bash(node -e \"require\\('./utils/validationSchemas'\\); require\\('./services/tokenService'\\); require\\('./controllers/authController'\\); console.log\\('OK'\\)\")"
     ]
   }
 }
