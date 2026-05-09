@@ -4,6 +4,15 @@ const UserDeviceModel = require('../models/UserDevice');
 let firebaseAdmin;
 let messagingClient;
 
+const MAX_RETRIES    = 3;
+const BASE_DELAY_MS  = 500;
+
+const RETRYABLE_CODES = new Set([
+  'messaging/server-unavailable',
+  'messaging/internal-error',
+  'messaging/unknown-error',
+]);
+
 function getMessaging() {
   if (messagingClient) return messagingClient;
 
@@ -31,6 +40,31 @@ function getMessaging() {
   }
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryable(err) {
+  return RETRYABLE_CODES.has(err?.code) || err?.code === 'UNAVAILABLE';
+}
+
+async function sendWithRetry(messaging, payload, attempt = 1) {
+  try {
+    if (payload.token) {
+      return await messaging.send(payload);
+    }
+    return await messaging.sendEachForMulticast(payload);
+  } catch (err) {
+    if (isRetryable(err) && attempt < MAX_RETRIES) {
+      const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1) + Math.random() * 200;
+      logger.warn(`FCM retry ${attempt}/${MAX_RETRIES} after ${Math.round(delay)}ms: ${err.code}`);
+      await sleep(delay);
+      return sendWithRetry(messaging, payload, attempt + 1);
+    }
+    throw err;
+  }
+}
+
 async function sendPushToUser(userId, { title, body, data = {} }) {
   const messaging = getMessaging();
   if (!messaging) return;
@@ -47,23 +81,24 @@ async function sendPushToUser(userId, { title, body, data = {} }) {
     };
 
     if (tokens.length === 1) {
-      await messaging.send({ ...message, token: tokens[0] });
+      await sendWithRetry(messaging, { ...message, token: tokens[0] });
     } else {
-      const response = await messaging.sendEachForMulticast({
-        ...message,
-        tokens,
-      });
+      const response = await sendWithRetry(messaging, { ...message, tokens });
 
       if (response.failureCount > 0) {
+        const staleTokens = [];
         response.responses.forEach((resp, idx) => {
           if (!resp.success && resp.error?.code === 'messaging/registration-token-not-registered') {
-            logger.info(`Stale FCM token removed for user ${userId}`);
+            staleTokens.push(tokens[idx]);
           }
         });
+        if (staleTokens.length) {
+          logger.info(`Removing ${staleTokens.length} stale FCM token(s) for user ${userId}`);
+        }
       }
     }
   } catch (err) {
-    logger.error(`FCM send failed for user ${userId}: ${err.message}`);
+    logger.error(`FCM send failed for user ${userId} after retries: ${err.message}`);
   }
 }
 
