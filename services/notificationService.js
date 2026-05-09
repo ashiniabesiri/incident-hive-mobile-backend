@@ -1,9 +1,22 @@
 const NotificationModel = require('../models/Notification');
+const { sendPushToUser, sendPushToUsers } = require('./pushNotificationService');
 const logger            = require('../utils/logger');
 
 async function safeCreate(payload) {
   try {
-    return await NotificationModel.create(payload);
+    const notification = await NotificationModel.create(payload);
+
+    sendPushToUser(payload.userId, {
+      title: payload.title,
+      body:  payload.body,
+      data:  {
+        type: payload.type,
+        notification_id: notification.notification_id,
+        ...(payload.referenceId && { reference_id: payload.referenceId }),
+      },
+    }).catch(() => {});
+
+    return notification;
   } catch (err) {
     logger.error('Failed to create notification:', { error: err.message, userId: payload.userId, type: payload.type });
     return null;
@@ -12,7 +25,18 @@ async function safeCreate(payload) {
 
 async function safeBulk(userIds, payload) {
   try {
-    return await NotificationModel.createBulk(userIds, payload);
+    const notifications = await NotificationModel.createBulk(userIds, payload);
+
+    sendPushToUsers(userIds, {
+      title: payload.title,
+      body:  payload.body,
+      data:  {
+        type: payload.type,
+        ...(payload.referenceId && { reference_id: payload.referenceId }),
+      },
+    }).catch(() => {});
+
+    return notifications;
   } catch (err) {
     logger.error('Failed to create bulk notifications:', { error: err.message, userIds, type: payload.type });
     return [];

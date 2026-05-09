@@ -1785,6 +1785,54 @@ const swaggerDefinition = {
       },
     },
 
+    '/notifications/push-token': {
+      post: {
+        tags: ['Notifications'],
+        summary: 'Register or update FCM push token',
+        description: 'Registers or updates the Firebase Cloud Messaging token for the authenticated user\'s device. The device is upserted automatically.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['device_id', 'fcm_token'],
+                properties: {
+                  device_id: { type: 'string', minLength: 3, maxLength: 255, example: 'android_pixel_001', description: 'Stable device identifier.' },
+                  fcm_token: { type: 'string', minLength: 10, maxLength: 4096, description: 'FCM registration token obtained from the Firebase SDK on the client.' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Push token registered successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        device_id: { type: 'string', example: 'android_pixel_001' },
+                        push_enabled: { type: 'boolean', example: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          404: { description: 'Device not found for this user' },
+          422: { description: 'Validation failed' },
+        },
+      },
+    },
+
     '/notifications/read-all': {
       patch: {
         tags: ['Notifications'],

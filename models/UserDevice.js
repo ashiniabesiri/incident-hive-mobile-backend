@@ -69,6 +69,27 @@ const UserDeviceModel = {
     return rows[0];
   },
 
+  async updateFcmToken(userId, deviceId, fcmToken) {
+    const { rows } = await query(
+      `UPDATE user_devices
+       SET fcm_token = $1, updated_at = NOW()
+       WHERE user_id = $2 AND device_id = $3
+       RETURNING *`,
+      [fcmToken, userId, deviceId]
+    );
+    return rows[0] || null;
+  },
+
+  async findFcmTokensByUser(userId) {
+    const { rows } = await query(
+      `SELECT fcm_token
+       FROM user_devices
+       WHERE user_id = $1 AND fcm_token IS NOT NULL`,
+      [userId]
+    );
+    return rows.map((r) => r.fcm_token);
+  },
+
   async touchDevice(userId, deviceId) {
     const { rows } = await query(
       `UPDATE user_devices

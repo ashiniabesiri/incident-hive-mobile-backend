@@ -14,7 +14,9 @@
  *   INCIDENT_UPDATE → either party receives on status changes
  */
 
+const Joi = require('joi');
 const NotificationModel = require('../models/Notification');
+const UserDeviceModel   = require('../models/UserDevice');
 
 // ─── GET /api/notifications ────────────────────────────────────────────────────
 
@@ -145,8 +147,68 @@ async function markAllAsRead(req, res, next) {
   }
 }
 
+// ─── POST /api/notifications/push-token ──────────────────────────────────────
+
+const pushTokenSchema = Joi.object({
+  device_id: Joi.string().min(3).max(255).required(),
+  fcm_token: Joi.string().min(10).max(4096).required(),
+});
+
+async function registerPushToken(req, res, next) {
+  try {
+    const { error, value } = pushTokenSchema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: true,
+    });
+    if (error) {
+      return res.status(422).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed.',
+          details: error.details.map((d) => d.message.replace(/['"]/g, '')),
+        },
+      });
+    }
+
+    const userId = req.user.userId;
+
+    await UserDeviceModel.upsertDevice({
+      deviceId: value.device_id,
+      userId,
+    });
+
+    const updated = await UserDeviceModel.updateFcmToken(
+      userId,
+      value.device_id,
+      value.fcm_token
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'DEVICE_NOT_FOUND',
+          message: 'Device not found for this user.',
+        },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        device_id: updated.device_id,
+        push_enabled: true,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   getNotifications,
   markAsRead,
   markAllAsRead,
+  registerPushToken,
 };

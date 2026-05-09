@@ -58,6 +58,10 @@ ADD COLUMN IF NOT EXISTS profile_picture_url TEXT;
 ALTER TABLE incidents
 ADD COLUMN IF NOT EXISTS currency VARCHAR(10) NOT NULL DEFAULT 'LKR';
 
+-- Add fcm_token column to user_devices if it doesn't exist
+ALTER TABLE user_devices
+ADD COLUMN IF NOT EXISTS fcm_token TEXT;
+
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 2. EXPERT_PROFILES TABLE
@@ -103,6 +107,7 @@ CREATE TABLE IF NOT EXISTS user_devices (
 
     biometric_enabled   BOOLEAN NOT NULL DEFAULT false,
     device_name         VARCHAR(255),
+    fcm_token           TEXT,
 
     last_used_at        TIMESTAMPTZ,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),

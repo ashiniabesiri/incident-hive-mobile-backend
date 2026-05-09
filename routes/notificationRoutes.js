@@ -51,6 +51,16 @@ router.get(
 );
 
 /**
+ * POST /api/notifications/push-token
+ * Register or update an FCM push token for the authenticated user's device.
+ * Body: { device_id, fcm_token }
+ */
+router.post(
+  '/push-token',
+  controller.registerPushToken
+);
+
+/**
  * PATCH /api/notifications/read-all
  * Mark ALL of the user's unread notifications as read in one operation.
  * Typically called when the notification screen is opened.
