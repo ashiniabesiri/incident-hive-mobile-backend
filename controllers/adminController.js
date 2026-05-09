@@ -8,6 +8,8 @@ const AuditLogModel = require('../models/AuditLog');
 const { withTransaction } = require('../config/database');
 const { sendExpertWelcomeEmail } = require('../services/emailService');
 
+const { query } = require('../config/database');
+
 const SALT_ROUNDS = 10;
 
 // ─── Validation schemas ────────────────────────────────────────────────────────
@@ -226,9 +228,108 @@ async function getAuditLogs(req, res, next) {
   }
 }
 
+// ─── GET /api/v1/admin/users ──────────────────────────────────────────────────
+
+async function listUsers(req, res, next) {
+  try {
+    const page  = Math.max(1, parseInt(req.query.page  || '1',  10));
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit || '20', 10)));
+    const offset = (page - 1) * limit;
+
+    const { users, total } = await UserModel.findAll({
+      role:          req.query.role          || undefined,
+      accountStatus: req.query.account_status || undefined,
+      search:        req.query.search        || undefined,
+      limit,
+      offset,
+    });
+
+    const totalPages = Math.ceil(total / limit);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        users,
+        pagination: {
+          total,
+          page,
+          limit,
+          total_pages: totalPages,
+          has_next_page: page < totalPages,
+          has_prev_page: page > 1,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ─── GET /api/v1/admin/users/:user_id ────────────────────────────────────────
+
+async function getUser(req, res, next) {
+  try {
+    const { user_id } = req.params;
+
+    const user = await UserModel.findPublicById(user_id);
+    if (!user) {
+      return sendError(res, 404, 'USER_NOT_FOUND', 'User not found.');
+    }
+
+    const data = { ...user };
+
+    if (user.role === 'expert') {
+      const profile = await ExpertProfileModel.findById(user_id);
+      if (profile) {
+        data.expertise_areas = profile.expertise_areas || [];
+        data.credentials     = profile.credentials || null;
+        data.bio             = profile.bio || null;
+        data.availability_status    = profile.availability_status;
+        data.completed_engagements  = profile.completed_engagements;
+        data.total_earned           = profile.total_earned;
+      }
+    }
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ─── GET /api/v1/admin/dashboard/stats ───────────────────────────────────────
+
+async function getDashboardStats(req, res, next) {
+  try {
+    const statsSQL = `
+      SELECT
+        (SELECT COUNT(*)::int FROM users WHERE account_status != 'deleted') AS total_users,
+        (SELECT COUNT(*)::int FROM users WHERE role = 'reporter' AND account_status != 'deleted') AS total_reporters,
+        (SELECT COUNT(*)::int FROM users WHERE role = 'expert' AND account_status != 'deleted') AS total_experts,
+        (SELECT COUNT(*)::int FROM users WHERE account_status = 'suspended') AS suspended_users,
+        (SELECT COUNT(*)::int FROM incidents WHERE deleted_at IS NULL) AS total_incidents,
+        (SELECT COUNT(*)::int FROM incidents WHERE status = 'Open' AND deleted_at IS NULL) AS open_incidents,
+        (SELECT COUNT(*)::int FROM incidents WHERE status = 'In Progress' AND deleted_at IS NULL) AS in_progress_incidents,
+        (SELECT COUNT(*)::int FROM incidents WHERE status = 'Completed' AND deleted_at IS NULL) AS completed_incidents,
+        (SELECT COUNT(*)::int FROM bids) AS total_bids
+    `;
+
+    const { rows } = await query(statsSQL);
+
+    return res.status(200).json({
+      success: true,
+      data: rows[0],
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   createExpert,
   terminateSession,
   updateUserStatus,
   getAuditLogs,
+  listUsers,
+  getUser,
+  getDashboardStats,
 };

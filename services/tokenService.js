@@ -58,8 +58,28 @@ const TokenService = {
     );
   },
 
-  verifyAccessToken(token) {
-    return jwt.verify(token, VERIFY_KEY, VERIFY_OPTIONS);
+  async verifyAccessToken(token) {
+    const decoded = jwt.verify(token, VERIFY_KEY, VERIFY_OPTIONS);
+    if (decoded.jti && await get(`${BLACKLIST_PREFIX}${decoded.jti}`)) {
+      const err = new Error('Access token has been revoked.');
+      err.name = 'TokenRevokedError';
+      throw err;
+    }
+    return decoded;
+  },
+
+  async blacklistAccessToken(accessTokenString) {
+    let decoded;
+    try {
+      decoded = jwt.verify(accessTokenString, VERIFY_KEY, VERIFY_OPTIONS);
+    } catch {
+      decoded = jwt.decode(accessTokenString);
+    }
+    if (!decoded?.jti) return;
+    const remainingTtl = decoded.exp
+      ? Math.max(decoded.exp - Math.floor(Date.now() / 1000), 1)
+      : ACCESS_TTL;
+    await set(`${BLACKLIST_PREFIX}${decoded.jti}`, '1', remainingTtl);
   },
 
   async generateRefreshToken(userId, deviceId = null) {
@@ -83,6 +103,10 @@ const TokenService = {
     }
 
     if (decoded.type !== 'refresh') throw new Error('Token type mismatch.');
+
+    if (decoded.jti && await get(`${BLACKLIST_PREFIX}${decoded.jti}`)) {
+      throw new Error('Refresh token has been revoked.');
+    }
 
     const userId = decoded.sub;
     const stored = await get(`${REFRESH_PREFIX}${userId}`);

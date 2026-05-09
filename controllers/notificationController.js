@@ -40,9 +40,10 @@ async function getNotifications(req, res, next) {
     const limit      = Math.min(50, Math.max(1, parseInt(req.query.limit || '20', 10)));
     const offset     = (page - 1) * limit;
 
-    // ── Fetch notifications + unread count in parallel ─────────────────────
-    const [notifications, unreadCount] = await Promise.all([
+    // ── Fetch notifications, total count, and unread count in parallel ───
+    const [notifications, total, unreadCount] = await Promise.all([
       NotificationModel.findByUser(userId, { unreadOnly, limit, offset }),
+      NotificationModel.countByUser(userId, { unreadOnly }),
       NotificationModel.countUnread(userId),
     ]);
 
@@ -52,11 +53,7 @@ async function getNotifications(req, res, next) {
       message: body,
     }));
 
-    // ── Derive total for pagination ────────────────────────────────────────
-    const total = notifications.length < limit
-      ? offset + notifications.length
-      : null;
-    const totalPages = total !== null ? Math.ceil(total / limit) : null;
+    const totalPages = Math.ceil(total / limit);
 
     res.status(200).json({
       success: true,
@@ -64,11 +61,11 @@ async function getNotifications(req, res, next) {
         notifications: mapped,
         unread_count: unreadCount,
         pagination: {
+          total,
           page,
           limit,
-          ...(total !== null && { total }),
-          ...(totalPages !== null && { total_pages: totalPages }),
-          has_next_page: notifications.length === limit,
+          total_pages: totalPages,
+          has_next_page: page < totalPages,
           has_prev_page: page > 1,
         },
       },

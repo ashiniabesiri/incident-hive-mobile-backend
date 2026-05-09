@@ -125,13 +125,32 @@ const swaggerDefinition = {
                 type: 'string',
                 example: 'reporter',
               },
+              user_type: {
+                type: 'string',
+                description: 'Alias for role. Always "reporter" for self-registration.',
+                example: 'reporter',
+              },
               access_token: {
                 type: 'string',
-                description: 'JWT Access Token, valid 15 min.',
+                description: 'JWT Access Token, valid 15 min. Email verification is still required before login.',
               },
               refresh_token: {
                 type: 'string',
                 description: 'JWT Refresh Token, valid 7 days.',
+              },
+              token_type: {
+                type: 'string',
+                example: 'Bearer',
+              },
+              expires_in: {
+                type: 'integer',
+                example: 900,
+                description: 'Access token lifetime in seconds.',
+              },
+              email_verified: {
+                type: 'boolean',
+                example: false,
+                description: 'Always false at registration. User must verify via POST /auth/verify-email.',
               },
               session_timeout_seconds: {
                 type: 'integer',
@@ -171,6 +190,7 @@ const swaggerDefinition = {
             properties: {
               user_id: { type: 'string', example: 'usr_a1b2c3d4' },
               role: { type: 'string', example: 'reporter' },
+              user_type: { type: 'string', description: 'Alias for role.', example: 'reporter' },
               access_token: { type: 'string', description: 'JWT Access Token valid 15 min.' },
               refresh_token: { type: 'string', description: 'JWT Refresh Token valid 7 days, bound to device_id.' },
               token_type: { type: 'string', example: 'Bearer' },
@@ -185,18 +205,35 @@ const swaggerDefinition = {
 
       ProfileUpdateRequest: {
         type: 'object',
+        description: 'All fields optional. Snake_case and camelCase both accepted for name/phone fields.',
         properties: {
-          firstName: {
+          first_name: {
             type: 'string',
             example: 'Ashini',
           },
-          lastName: {
+          last_name: {
             type: 'string',
             example: 'Perera',
           },
-          phoneNumber: {
+          phone_number: {
             type: 'string',
             example: '+94771234567',
+          },
+          expertise_areas: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Expert-only. Array of expertise area strings.',
+            example: ['Phishing', 'DDoS'],
+          },
+          bio: {
+            type: 'string',
+            description: 'Expert-only. Short biography.',
+            example: 'Certified security consultant with 10 years experience.',
+          },
+          credentials: {
+            type: 'string',
+            description: 'Expert-only. Professional certifications.',
+            example: 'CISSP, CEH',
           },
         },
       },
@@ -354,6 +391,162 @@ const swaggerDefinition = {
           503: {
             description: 'System is degraded',
           },
+        },
+      },
+    },
+
+    '/admin/users': {
+      get: {
+        tags: ['Admin'],
+        summary: 'List all users',
+        description: 'Admin-only. Paginated user list with optional filters by role, account status, or search.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'role', in: 'query', schema: { type: 'string', enum: ['reporter', 'expert', 'admin'] } },
+          { name: 'account_status', in: 'query', schema: { type: 'string', enum: ['active', 'suspended'] } },
+          { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by name or email' },
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 20, maximum: 50 } },
+        ],
+        responses: {
+          200: {
+            description: 'User list returned',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        users: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              user_id: { type: 'string', format: 'uuid' },
+                              email: { type: 'string', format: 'email' },
+                              first_name: { type: 'string' },
+                              last_name: { type: 'string' },
+                              role: { type: 'string' },
+                              email_verified: { type: 'boolean' },
+                              account_status: { type: 'string' },
+                              mfa_enabled: { type: 'boolean' },
+                              last_login_at: { type: 'string', format: 'date-time', nullable: true },
+                              created_at: { type: 'string', format: 'date-time' },
+                            },
+                          },
+                        },
+                        pagination: {
+                          type: 'object',
+                          properties: {
+                            total: { type: 'integer' },
+                            page: { type: 'integer' },
+                            limit: { type: 'integer' },
+                            total_pages: { type: 'integer' },
+                            has_next_page: { type: 'boolean' },
+                            has_prev_page: { type: 'boolean' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          403: { description: 'Admin role required' },
+        },
+      },
+    },
+
+    '/admin/users/{user_id}': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Get user details',
+        description: 'Admin-only. Returns full user profile including expert profile fields if applicable.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'user_id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: {
+            description: 'User details returned',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        user_id: { type: 'string', format: 'uuid' },
+                        email: { type: 'string', format: 'email' },
+                        first_name: { type: 'string' },
+                        last_name: { type: 'string' },
+                        phone_number: { type: 'string', nullable: true },
+                        role: { type: 'string' },
+                        email_verified: { type: 'boolean' },
+                        account_status: { type: 'string' },
+                        mfa_enabled: { type: 'boolean' },
+                        last_login_at: { type: 'string', format: 'date-time', nullable: true },
+                        created_at: { type: 'string', format: 'date-time' },
+                        expertise_areas: { type: 'array', items: { type: 'string' }, description: 'Expert only' },
+                        credentials: { type: 'string', nullable: true, description: 'Expert only' },
+                        bio: { type: 'string', nullable: true, description: 'Expert only' },
+                        availability_status: { type: 'string', description: 'Expert only' },
+                        completed_engagements: { type: 'integer', description: 'Expert only' },
+                        total_earned: { type: 'number', description: 'Expert only' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          403: { description: 'Admin role required' },
+          404: { description: 'User not found' },
+        },
+      },
+    },
+
+    '/admin/dashboard/stats': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Platform dashboard statistics',
+        description: 'Admin-only. Returns aggregate counts for users, incidents, and bids.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Dashboard statistics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        total_users: { type: 'integer' },
+                        total_reporters: { type: 'integer' },
+                        total_experts: { type: 'integer' },
+                        suspended_users: { type: 'integer' },
+                        total_incidents: { type: 'integer' },
+                        open_incidents: { type: 'integer' },
+                        in_progress_incidents: { type: 'integer' },
+                        completed_incidents: { type: 'integer' },
+                        total_bids: { type: 'integer' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          403: { description: 'Admin role required' },
         },
       },
     },
@@ -670,10 +863,27 @@ const swaggerDefinition = {
       post: {
         tags: ['Auth'],
         summary: 'Start MFA setup for authenticated user',
+        description: 'Generates a 6-digit OTP and sends it to the user\'s email. The code must be verified via POST /auth/mfa/verify to enable MFA.',
         security: [{ bearerAuth: [] }],
         responses: {
           200: {
             description: 'MFA setup code sent successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        message: { type: 'string', example: 'MFA setup initiated. A verification code has been sent to your email.' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
           401: {
             description: 'Access token required',
@@ -693,11 +903,16 @@ const swaggerDefinition = {
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['otp_code'],
+                description: 'Provide either otp_code or mfa_code (at least one required).',
                 properties: {
                   otp_code: {
                     type: 'string',
                     description: '6-digit one-time password from email.',
+                    example: '123456',
+                  },
+                  mfa_code: {
+                    type: 'string',
+                    description: 'Alias for otp_code. Either field is accepted.',
                     example: '123456',
                   },
                 },
@@ -919,6 +1134,7 @@ const swaggerDefinition = {
                     data: {
                       type: 'object',
                       properties: {
+                        device_id: { type: 'string', example: 'android_pixel_001' },
                         biometric_enabled: { type: 'boolean', example: true },
                       },
                     },
@@ -1091,13 +1307,32 @@ const swaggerDefinition = {
       delete: {
         tags: ['Profile'],
         summary: 'Delete authenticated user account',
+        description: 'Permanently anonymises the account (GDPR). Requires password confirmation and explicit confirm_deletion flag.',
         security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['password', 'confirm_deletion'],
+                properties: {
+                  password: { type: 'string', description: 'Current account password for verification.' },
+                  confirm_deletion: { type: 'boolean', description: 'Must be true to proceed.', example: true },
+                },
+              },
+            },
+          },
+        },
         responses: {
           200: {
             description: 'Account deleted successfully',
           },
           401: {
-            description: 'Access token required',
+            description: 'Password confirmation failed',
+          },
+          422: {
+            description: 'Validation failed (missing password or confirm_deletion)',
           },
         },
       },
@@ -1254,6 +1489,55 @@ const swaggerDefinition = {
         responses: {
           200: {
             description: 'Incident list returned',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        incidents: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              incident_id: { type: 'string', format: 'uuid' },
+                              reporter_id: { type: 'string', format: 'uuid' },
+                              incident_type: { type: 'string', example: 'Phishing' },
+                              title: { type: 'string' },
+                              description: { type: 'string' },
+                              budget: { type: 'number', example: 5000 },
+                              currency: { type: 'string', example: 'LKR' },
+                              is_anonymous: { type: 'boolean' },
+                              status: { type: 'string', example: 'Open' },
+                              bid_count: { type: 'integer', example: 3 },
+                              bid_window_ends_at: { type: 'string', format: 'date-time' },
+                              created_at: { type: 'string', format: 'date-time' },
+                              updated_at: { type: 'string', format: 'date-time' },
+                            },
+                          },
+                        },
+                        pagination: {
+                          type: 'object',
+                          properties: {
+                            total: { type: 'integer', example: 25 },
+                            page: { type: 'integer', example: 1 },
+                            limit: { type: 'integer', example: 10 },
+                            sort_by: { type: 'string', example: 'created_at' },
+                            sort_order: { type: 'string', example: 'desc' },
+                            total_pages: { type: 'integer', example: 3 },
+                            has_next_page: { type: 'boolean', example: true },
+                            has_prev_page: { type: 'boolean', example: false },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
           401: {
             description: 'Access token required',
@@ -1333,12 +1617,17 @@ const swaggerDefinition = {
                           type: 'object',
                           properties: {
                             incident_id: { type: 'string', format: 'uuid' },
+                            reporter_id: { type: 'string', format: 'uuid' },
                             incident_type: { type: 'string', example: 'Phishing' },
                             title: { type: 'string' },
                             description: { type: 'string' },
                             budget: { type: 'number', example: 5000 },
                             currency: { type: 'string', example: 'LKR' },
+                            is_anonymous: { type: 'boolean' },
                             status: { type: 'string', example: 'Open' },
+                            bid_window_ends_at: { type: 'string', format: 'date-time' },
+                            created_at: { type: 'string', format: 'date-time' },
+                            updated_at: { type: 'string', format: 'date-time' },
                             bid_count: { type: 'integer', example: 2 },
                             bids: {
                               type: 'array',
@@ -1346,15 +1635,19 @@ const swaggerDefinition = {
                                 type: 'object',
                                 properties: {
                                   bid_id: { type: 'string', format: 'uuid' },
+                                  incident_id: { type: 'string', format: 'uuid' },
                                   expert_id: { type: 'string', format: 'uuid' },
                                   proposed_approach: { type: 'string' },
                                   estimated_hours: { type: 'integer' },
                                   proposed_fee: { type: 'number' },
-                                  status: { type: 'string' },
+                                  status: { type: 'string', enum: ['Pending', 'Accepted', 'Declined'] },
+                                  submitted_at: { type: 'string', format: 'date-time' },
+                                  updated_at: { type: 'string', format: 'date-time' },
                                   expert_first_name: { type: 'string' },
                                   expert_last_name: { type: 'string' },
                                   expert_credentials: { type: 'string' },
-                                  submitted_at: { type: 'string', format: 'date-time' },
+                                  expert_expertise_areas: { type: 'array', items: { type: 'string' } },
+                                  expert_completed_engagements: { type: 'integer' },
                                 },
                               },
                             },
@@ -1422,6 +1715,39 @@ const swaggerDefinition = {
         responses: {
           200: {
             description: 'Incident updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Incident updated successfully.' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        incident: {
+                          type: 'object',
+                          properties: {
+                            incident_id: { type: 'string', format: 'uuid' },
+                            reporter_id: { type: 'string', format: 'uuid' },
+                            incident_type: { type: 'string', example: 'Phishing' },
+                            title: { type: 'string' },
+                            description: { type: 'string' },
+                            budget: { type: 'number', example: 6500 },
+                            currency: { type: 'string', example: 'LKR' },
+                            is_anonymous: { type: 'boolean' },
+                            status: { type: 'string', example: 'Open' },
+                            bid_window_ends_at: { type: 'string', format: 'date-time' },
+                            created_at: { type: 'string', format: 'date-time' },
+                            updated_at: { type: 'string', format: 'date-time' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
           401: {
             description: 'Access token required',
@@ -1470,6 +1796,7 @@ const swaggerDefinition = {
       patch: {
         tags: ['Incidents'],
         summary: 'Update incident status',
+        description: 'Status values are case-insensitive (e.g. "in progress" is accepted and normalised to "In Progress").',
         security: [{ bearerAuth: [] }],
         parameters: [
           {
@@ -1492,6 +1819,7 @@ const swaggerDefinition = {
                   status: {
                     type: 'string',
                     enum: ['In Progress', 'Completed', 'Cancelled'],
+                    description: 'Case-insensitive. Stored as title-case.',
                     example: 'In Progress',
                   },
                 },
@@ -1505,12 +1833,42 @@ const swaggerDefinition = {
         responses: {
           200: {
             description: 'Status updated successfully',
-          },
-          400: {
-            description: 'Validation failed',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: "Incident status updated to 'In Progress'." },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        incident: {
+                          type: 'object',
+                          properties: {
+                            incident_id: { type: 'string', format: 'uuid' },
+                            status: { type: 'string', example: 'In Progress' },
+                            updated_at: { type: 'string', format: 'date-time' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
           401: {
             description: 'Access token required',
+          },
+          404: {
+            description: 'Incident not found',
+          },
+          409: {
+            description: 'Cannot change status of a Completed or Cancelled incident',
+          },
+          422: {
+            description: 'Validation failed',
           },
         },
       },
@@ -1565,9 +1923,43 @@ const swaggerDefinition = {
         responses: {
           201: {
             description: 'Bid placed successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Bid placed successfully.' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        bid: {
+                          type: 'object',
+                          properties: {
+                            bid_id: { type: 'string', format: 'uuid' },
+                            incident_id: { type: 'string', format: 'uuid' },
+                            expert_id: { type: 'string', format: 'uuid' },
+                            proposed_approach: { type: 'string' },
+                            estimated_hours: { type: 'integer', example: 3 },
+                            estimated_time: { type: 'string', example: '3 hours' },
+                            proposed_fee: { type: 'number', example: 4500 },
+                            status: { type: 'string', example: 'Pending' },
+                            submitted_at: { type: 'string', format: 'date-time' },
+                            updated_at: { type: 'string', format: 'date-time' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          404: {
+            description: 'Incident not found',
           },
           409: {
-            description: 'Duplicate bid or incident not open',
+            description: 'Duplicate bid, incident not open, or bidding window expired',
           },
         },
       },
@@ -1784,6 +2176,7 @@ const swaggerDefinition = {
                             credentials: { type: 'string', nullable: true },
                             availability_status: { type: 'string', enum: ['Available', 'Unavailable'] },
                             completed_engagements: { type: 'integer' },
+                            past_jobs_count: { type: 'integer', description: 'Alias for completed_engagements' },
                             total_earned: { type: 'number' },
                             profile_created_at: { type: 'string', format: 'date-time' },
                           },
@@ -1864,10 +2257,10 @@ const swaggerDefinition = {
                         pagination: {
                           type: 'object',
                           properties: {
-                            page: { type: 'integer' },
-                            limit: { type: 'integer' },
-                            total: { type: 'integer', nullable: true },
-                            total_pages: { type: 'integer', nullable: true },
+                            total: { type: 'integer', example: 15 },
+                            page: { type: 'integer', example: 1 },
+                            limit: { type: 'integer', example: 20 },
+                            total_pages: { type: 'integer', example: 1 },
                             has_next_page: { type: 'boolean' },
                             has_prev_page: { type: 'boolean' },
                           },

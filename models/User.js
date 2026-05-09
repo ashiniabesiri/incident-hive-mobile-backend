@@ -78,6 +78,52 @@ const UserModel = {
     return rows[0] || null;
   },
 
+  async findAll({ role, accountStatus, search, limit = 20, offset = 0 } = {}) {
+    const conditions = ["account_status != 'deleted'"];
+    const params = [];
+
+    if (role) {
+      params.push(role);
+      conditions.push(`role = $${params.length}`);
+    }
+    if (accountStatus) {
+      params.push(accountStatus);
+      conditions.push(`account_status = $${params.length}`);
+    }
+    if (search && search.trim()) {
+      params.push(`%${search.trim()}%`);
+      conditions.push(
+        `(first_name ILIKE $${params.length} OR last_name ILIKE $${params.length} OR email ILIKE $${params.length})`
+      );
+    }
+
+    const whereClause = conditions.join(' AND ');
+    params.push(limit, offset);
+
+    const dataSQL = `
+      SELECT user_id, email, first_name, last_name, phone_number,
+             role, email_verified, account_status, mfa_enabled,
+             last_login_at, created_at
+      FROM users
+      WHERE ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT $${params.length - 1} OFFSET $${params.length}
+    `;
+
+    const countParams = params.slice(0, params.length - 2);
+    const countSQL = `SELECT COUNT(*)::int AS total FROM users WHERE ${whereClause}`;
+
+    const [dataResult, countResult] = await Promise.all([
+      query(dataSQL, params),
+      query(countSQL, countParams),
+    ]);
+
+    return {
+      users: dataResult.rows,
+      total: countResult.rows[0].total,
+    };
+  },
+
   // ──────────────────────────────────────────────────────────────────────────────
   // UPDATE
   // ──────────────────────────────────────────────────────────────────────────────

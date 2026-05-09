@@ -165,6 +165,16 @@ const NotificationModel = {
     return rows[0].total;
   },
 
+  async countByUser(userId, { unreadOnly = false } = {}) {
+    const conditions = ['user_id = $1'];
+    if (unreadOnly) conditions.push('is_read = false');
+    const { rows } = await query(
+      `SELECT COUNT(*)::int AS total FROM notifications WHERE ${conditions.join(' AND ')}`,
+      [userId]
+    );
+    return rows[0].total;
+  },
+
   // ──────────────────────────────────────────────────────────────────────────────
   // UPDATE
   // ──────────────────────────────────────────────────────────────────────────────

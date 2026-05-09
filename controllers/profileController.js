@@ -15,11 +15,15 @@ const { sendAccountDeletionEmail } = require('../services/emailService');
 const SALT_ROUNDS = 10;
 
 const updateProfileSchema = Joi.object({
+  first_name: Joi.string().min(1).max(100).trim(),
   firstName: Joi.string().min(1).max(100).trim(),
+  last_name: Joi.string().min(1).max(100).trim(),
   lastName: Joi.string().min(1).max(100).trim(),
+  phone_number: Joi.string().pattern(/^\+?[\d\s\-().]{7,20}$/).trim().allow(null, ''),
   phoneNumber: Joi.string().pattern(/^\+?[\d\s\-().]{7,20}$/).trim().allow(null, ''),
   expertise_areas: Joi.array().items(Joi.string().trim().max(100)).max(20),
   bio: Joi.string().max(2000).trim().allow(null, ''),
+  credentials: Joi.string().max(2000).trim().allow(null, ''),
 }).min(1);
 
 const changePasswordSchema = Joi.object({
@@ -107,15 +111,19 @@ async function updateProfile(req, res, next) {
 
     if (error) return validationError(res, error);
 
-    const hasUserFields = value.firstName || value.lastName || value.phoneNumber !== undefined;
-    const hasExpertFields = value.expertise_areas || value.bio !== undefined;
+    const firstName   = value.first_name   || value.firstName;
+    const lastName     = value.last_name    || value.lastName;
+    const phoneNumber  = value.phone_number !== undefined ? value.phone_number : value.phoneNumber;
+
+    const hasUserFields   = firstName || lastName || phoneNumber !== undefined;
+    const hasExpertFields = value.expertise_areas || value.bio !== undefined || value.credentials !== undefined;
 
     let updated;
     if (hasUserFields) {
       updated = await UserModel.updateProfile(req.user.userId, {
-        firstName: value.firstName,
-        lastName: value.lastName,
-        phoneNumber: value.phoneNumber,
+        firstName,
+        lastName,
+        phoneNumber,
       });
     } else {
       updated = await UserModel.findPublicById(req.user.userId);
@@ -136,20 +144,28 @@ async function updateProfile(req, res, next) {
       first_name: updated.first_name,
       last_name: updated.last_name,
       email: updated.email,
-      phone: updated.phone_number,
+      phone_number: updated.phone_number,
       role: updated.role,
       profile_picture_url: updated.profile_picture_url || null,
     };
 
-    if (updated.role === 'expert' && hasExpertFields) {
-      const expertUpdate = {};
-      if (value.expertise_areas) expertUpdate.expertiseAreas = value.expertise_areas;
-      if (value.bio !== undefined) expertUpdate.bio = value.bio;
+    if (updated.role === 'expert') {
+      if (hasExpertFields) {
+        const expertUpdate = {};
+        if (value.expertise_areas)        expertUpdate.expertiseAreas = value.expertise_areas;
+        if (value.bio !== undefined)       expertUpdate.bio = value.bio;
+        if (value.credentials !== undefined) expertUpdate.credentials = value.credentials;
 
-      const expert = await ExpertProfileModel.update(req.user.userId, expertUpdate);
+        await ExpertProfileModel.update(req.user.userId, expertUpdate);
+      }
+
+      const expert = await ExpertProfileModel.findById(req.user.userId);
       if (expert) {
         data.expertise_areas = expert.expertise_areas || [];
         data.bio = expert.bio || null;
+        data.credentials = expert.credentials || null;
+        data.availability = expert.availability_status;
+        data.past_jobs_count = expert.completed_engagements;
       }
     }
 
@@ -249,6 +265,9 @@ async function uploadProfilePicture(req, res, next) {
  */
 const deleteAccountSchema = Joi.object({
   password: Joi.string().required(),
+  confirm_deletion: Joi.boolean().valid(true).required().messages({
+    'any.only': 'confirm_deletion must be true to delete your account.',
+  }),
 });
 
 async function deleteAccount(req, res, next) {

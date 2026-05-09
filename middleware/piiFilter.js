@@ -143,6 +143,10 @@ function filterExpertProfile(row) {
   if (!('profile_picture_url' in result)) {
     result.profile_picture_url = null;
   }
+  // Alias for client compatibility with GET /profile which uses past_jobs_count
+  if ('completed_engagements' in result) {
+    result.past_jobs_count = result.completed_engagements;
+  }
   return result;
 }
 

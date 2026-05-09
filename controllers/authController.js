@@ -114,8 +114,12 @@ async function register(req, res, next) {
         user_id: user.user_id,
         email: user.email,
         role: user.role,
+        user_type: user.role,
         access_token: accessToken,
         refresh_token: refreshToken,
+        token_type: 'Bearer',
+        expires_in: ACCESS_TTL,
+        email_verified: false,
         session_timeout_seconds: SESSION_TTL,
 
         // Development only: helps testing when SMTP email is not configured.
@@ -265,6 +269,7 @@ async function login(req, res, next) {
       data: {
         user_id: user.user_id,
         role: user.role,
+        user_type: user.role,
         access_token: accessToken,
         refresh_token: refreshToken,
         token_type: 'Bearer',
@@ -345,7 +350,11 @@ async function logout(req, res, next) {
   try {
     const { refresh_token } = req.body;
 
-    await TokenService.blacklistRefreshToken(refresh_token);
+    const accessToken = req.headers.authorization?.split(' ')[1];
+    await Promise.all([
+      TokenService.blacklistAccessToken(accessToken),
+      TokenService.blacklistRefreshToken(refresh_token),
+    ]);
     await TokenService.revokeAllTokens(req.user.userId);
 
     return res.status(200).json({
@@ -393,7 +402,7 @@ async function mfaSetup(req, res, next) {
 async function mfaVerify(req, res, next) {
   try {
     const { userId, email, role } = req.user;
-    const { otp_code } = req.body;
+    const otp_code = req.body.otp_code || req.body.mfa_code;
 
     const stored = await get(`${MFA_PREFIX}${email}`);
 
@@ -473,6 +482,7 @@ async function mfaLogin(req, res, next) {
       data: {
         user_id: user.user_id,
         role: user.role,
+        user_type: user.role,
         access_token: accessToken,
         refresh_token: refreshToken,
         token_type: 'Bearer',
@@ -582,6 +592,7 @@ async function googleLogin(req, res, next) {
       data: {
         user_id: user.user_id,
         role: user.role,
+        user_type: user.role,
         access_token: accessToken,
         refresh_token: refreshToken,
         token_type: 'Bearer',
@@ -674,6 +685,7 @@ async function biometricRegister(req, res, next) {
     return res.status(200).json({
       success: true,
       data: {
+        device_id: device.device_id,
         biometric_enabled: device.biometric_enabled,
       },
     });
@@ -727,6 +739,7 @@ async function biometricLogin(req, res, next) {
       data: {
         user_id: user.user_id,
         role: user.role,
+        user_type: user.role,
         access_token: accessToken,
         refresh_token: refreshToken,
         token_type: 'Bearer',

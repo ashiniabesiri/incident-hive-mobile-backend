@@ -23,10 +23,13 @@ async function requireAuth(req, res, next) {
     let decoded;
 
     try {
-      decoded = TokenService.verifyAccessToken(token);
+      decoded = await TokenService.verifyAccessToken(token);
     } catch (err) {
       if (err.name === 'TokenExpiredError') {
         return sendError(res, 401, 'TOKEN_EXPIRED', 'Session expired. Please log in again.');
+      }
+      if (err.name === 'TokenRevokedError') {
+        return sendError(res, 401, 'TOKEN_REVOKED', 'Access token has been revoked. Please log in again.');
       }
 
       return sendError(res, 401, 'INVALID_ACCESS_TOKEN', 'Invalid access token.');
@@ -68,7 +71,7 @@ async function optionalAuth(req, res, next) {
     let decoded;
 
     try {
-      decoded = TokenService.verifyAccessToken(token);
+      decoded = await TokenService.verifyAccessToken(token);
     } catch {
       return next();
     }

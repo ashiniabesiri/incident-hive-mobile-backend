@@ -77,8 +77,9 @@ const changePasswordSchema = Joi.object({
   });
 
 const mfaVerifySchema = Joi.object({
-  otp_code: sixDigitCode,
-});
+  otp_code: sixDigitCode.optional(),
+  mfa_code: sixDigitCode.optional(),
+}).or('otp_code', 'mfa_code');
 
 const mfaLoginSchema = Joi.object({
   email: emailField,
