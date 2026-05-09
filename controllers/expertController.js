@@ -15,7 +15,7 @@ const {
   filterExpertProfile,
 } = require('../middleware/piiFilter');
 
-// ─── Validation schemas ────────────────────────────────────────────────────────
+// Validation schemas 
 
 const availabilitySchema = Joi.object({
   availability: Joi.string()
