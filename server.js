@@ -33,6 +33,7 @@ const adminRoutes = require('./routes/adminRoutes');
 
 // ── Global middleware ──────────────────────────────────────────────────────────
 const errorHandler = require('./middleware/errorHandler');
+const auditLog     = require('./middleware/auditLog');
 
 const app = express();
 
@@ -124,6 +125,9 @@ app.get('/health', async (req, res) => {
 
 // ── Static file serving ────────────────────────────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ── Audit logging (state-changing requests only) ──────────────────────────────
+app.use(auditLog);
 
 // ── API routes with /api/v1 prefix ─────────────────────────────────────────────
 app.use(`${API_PREFIX}/auth`, authRoutes);

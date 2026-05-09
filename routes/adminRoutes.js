@@ -27,4 +27,10 @@ router.post('/sessions/terminate', controller.terminateSession);
  */
 router.patch('/users/:user_id/status', controller.updateUserStatus);
 
+/**
+ * GET /api/v1/admin/audit-logs
+ * Query audit logs with optional filters.
+ */
+router.get('/audit-logs', controller.getAuditLogs);
+
 module.exports = router;

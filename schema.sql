@@ -315,7 +315,47 @@ CREATE INDEX IF NOT EXISTS idx_testimonials_created_at
 
 
 -- ════════════════════════════════════════════════════════════════════════════
--- 10. AUTO-UPDATE TIMESTAMP TRIGGER
+-- 10. AUDIT_LOGS TABLE
+-- ════════════════════════════════════════════════════════════════════════════
+-- Immutable append-only log of state-changing API actions.
+-- ════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    audit_id        UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    user_id         UUID          REFERENCES users(user_id) ON DELETE SET NULL,
+    action          VARCHAR(100)  NOT NULL,
+    resource_type   VARCHAR(50)   NOT NULL,
+    resource_id     VARCHAR(255),
+
+    method          VARCHAR(10)   NOT NULL,
+    path            TEXT          NOT NULL,
+    status_code     SMALLINT,
+
+    ip_address      INET,
+    user_agent      TEXT,
+
+    details         JSONB,
+
+    created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id
+    ON audit_logs (user_id);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action
+    ON audit_logs (action);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_resource
+    ON audit_logs (resource_type, resource_id);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at
+    ON audit_logs (created_at DESC);
+
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 11. AUTO-UPDATE TIMESTAMP TRIGGER
+-- (renumbered from 10)
 -- ════════════════════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -432,4 +472,5 @@ WHERE NOT EXISTS (
 --   7. notifications
 --   8. news
 --   9. testimonials
+--  10. audit_logs
 -- ════════════════════════════════════════════════════════════════════════════

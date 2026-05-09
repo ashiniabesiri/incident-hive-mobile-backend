@@ -362,7 +362,7 @@ const swaggerDefinition = {
       post: {
         tags: ['Admin'],
         summary: 'Create expert account',
-        description: 'Admin-only. Creates a user with role=expert and an expert_profiles row.',
+        description: 'Admin-only. Creates a user with role=expert and an expert_profiles row in a single transaction. The expert is auto-verified and receives a welcome email with temporary credentials.',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -373,7 +373,7 @@ const swaggerDefinition = {
                 required: ['email', 'password', 'firstName', 'lastName'],
                 properties: {
                   email: { type: 'string', format: 'email' },
-                  password: { type: 'string' },
+                  password: { type: 'string', description: 'Temporary password. Expert should change after first login.' },
                   firstName: { type: 'string' },
                   lastName: { type: 'string' },
                   phoneNumber: { type: 'string' },
@@ -386,7 +386,34 @@ const swaggerDefinition = {
           },
         },
         responses: {
-          201: { description: 'Expert account created' },
+          201: {
+            description: 'Expert account created',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        user_id: { type: 'string', format: 'uuid' },
+                        email: { type: 'string', format: 'email' },
+                        first_name: { type: 'string' },
+                        last_name: { type: 'string' },
+                        role: { type: 'string', example: 'expert' },
+                        email_verified: { type: 'boolean', example: true },
+                        expertise_areas: { type: 'array', items: { type: 'string' } },
+                        credentials: { type: 'string', nullable: true },
+                        bio: { type: 'string', nullable: true },
+                        created_at: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
           403: { description: 'Admin role required' },
           409: { description: 'Email already exists' },
           422: { description: 'Validation failed' },
@@ -455,6 +482,77 @@ const swaggerDefinition = {
           403: { description: 'Admin role required' },
           404: { description: 'User not found' },
           422: { description: 'Validation failed' },
+        },
+      },
+    },
+
+    '/admin/audit-logs': {
+      get: {
+        tags: ['Admin'],
+        summary: 'Query audit logs',
+        description: 'Admin-only. Returns a paginated, filterable list of audit log entries for all state-changing API actions.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'user_id', in: 'query', schema: { type: 'string', format: 'uuid' }, description: 'Filter by acting user' },
+          { name: 'action', in: 'query', schema: { type: 'string', example: 'INCIDENT_CREATE' }, description: 'Filter by action type' },
+          { name: 'resource_type', in: 'query', schema: { type: 'string', example: 'incident' }, description: 'Filter by resource type' },
+          { name: 'resource_id', in: 'query', schema: { type: 'string' }, description: 'Filter by resource ID' },
+          { name: 'start_date', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Inclusive start (ISO 8601)' },
+          { name: 'end_date', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Inclusive end (ISO 8601)' },
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 50, maximum: 100 } },
+        ],
+        responses: {
+          200: {
+            description: 'Audit logs returned',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        audit_logs: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              audit_id: { type: 'string', format: 'uuid' },
+                              user_id: { type: 'string', format: 'uuid', nullable: true },
+                              action: { type: 'string', example: 'INCIDENT_CREATE' },
+                              resource_type: { type: 'string', example: 'incident' },
+                              resource_id: { type: 'string', nullable: true },
+                              method: { type: 'string', example: 'POST' },
+                              path: { type: 'string', example: '/api/v1/incidents' },
+                              status_code: { type: 'integer', example: 201 },
+                              ip_address: { type: 'string', nullable: true },
+                              user_agent: { type: 'string', nullable: true },
+                              details: { type: 'object', nullable: true },
+                              created_at: { type: 'string', format: 'date-time' },
+                            },
+                          },
+                        },
+                        pagination: {
+                          type: 'object',
+                          properties: {
+                            page: { type: 'integer' },
+                            limit: { type: 'integer' },
+                            total: { type: 'integer' },
+                            total_pages: { type: 'integer' },
+                            has_next_page: { type: 'boolean' },
+                            has_prev_page: { type: 'boolean' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          403: { description: 'Admin role required' },
         },
       },
     },

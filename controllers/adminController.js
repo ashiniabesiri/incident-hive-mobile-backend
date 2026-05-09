@@ -4,6 +4,9 @@ const Joi = require('joi');
 const UserModel = require('../models/User');
 const ExpertProfileModel = require('../models/ExpertProfile');
 const TokenService = require('../services/tokenService');
+const AuditLogModel = require('../models/AuditLog');
+const { withTransaction } = require('../config/database');
+const { sendExpertWelcomeEmail } = require('../services/emailService');
 
 const SALT_ROUNDS = 10;
 
@@ -69,24 +72,30 @@ async function createExpert(req, res, next) {
 
     const passwordHash = await bcrypt.hash(value.password, SALT_ROUNDS);
 
-    const user = await UserModel.create({
-      email: value.email,
-      passwordHash,
-      firstName: value.firstName,
-      lastName: value.lastName,
-      phoneNumber: value.phoneNumber || null,
-      role: 'expert',
+    const result = await withTransaction(async (client) => {
+      const { rows: [user] } = await client.query(
+        `INSERT INTO users
+           (email, password_hash, first_name, last_name, phone_number, role, email_verified)
+         VALUES ($1, $2, $3, $4, $5, 'expert', true)
+         RETURNING user_id, email, first_name, last_name, phone_number,
+                   profile_picture_url, role, email_verified, account_status, created_at`,
+        [value.email.toLowerCase().trim(), passwordHash, value.firstName.trim(), value.lastName.trim(), value.phoneNumber || null]
+      );
+
+      const { rows: [profile] } = await client.query(
+        `INSERT INTO expert_profiles
+           (user_id, credentials, bio, expertise_areas)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *`,
+        [user.user_id, value.credentials || null, value.bio || null, value.expertise_areas]
+      );
+
+      return { user, profile };
     });
 
-    const expertProfile = await ExpertProfileModel.create({
-      userId: user.user_id,
-      credentials: value.credentials || null,
-      expertiseAreas: value.expertise_areas,
-    });
+    const { user, profile } = result;
 
-    if (value.bio) {
-      await ExpertProfileModel.update(user.user_id, { bio: value.bio });
-    }
+    sendExpertWelcomeEmail(user.email, value.password, user.first_name).catch(() => {});
 
     return res.status(201).json({
       success: true,
@@ -96,9 +105,10 @@ async function createExpert(req, res, next) {
         first_name: user.first_name,
         last_name: user.last_name,
         role: user.role,
-        expertise_areas: expertProfile.expertise_areas || [],
-        credentials: expertProfile.credentials || null,
-        bio: value.bio || null,
+        email_verified: user.email_verified,
+        expertise_areas: profile.expertise_areas || [],
+        credentials: profile.credentials || null,
+        bio: profile.bio || null,
         created_at: user.created_at,
       },
     });
@@ -177,8 +187,48 @@ async function updateUserStatus(req, res, next) {
   }
 }
 
+// ─── GET /api/v1/admin/audit-logs ─────────────────────────────────────────────
+
+async function getAuditLogs(req, res, next) {
+  try {
+    const page  = Math.max(1, parseInt(req.query.page  || '1',  10));
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit || '50', 10)));
+
+    const filters = {
+      userId:       req.query.user_id       || null,
+      action:       req.query.action        || null,
+      resourceType: req.query.resource_type || null,
+      resourceId:   req.query.resource_id   || null,
+      startDate:    req.query.start_date    || null,
+      endDate:      req.query.end_date      || null,
+      page,
+      limit,
+    };
+
+    const result = await AuditLogModel.findAll(filters);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        audit_logs: result.logs,
+        pagination: {
+          page: result.page,
+          limit: result.limit,
+          total: result.total,
+          total_pages: result.total_pages,
+          has_next_page: result.page < result.total_pages,
+          has_prev_page: result.page > 1,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   createExpert,
   terminateSession,
   updateUserStatus,
+  getAuditLogs,
 };

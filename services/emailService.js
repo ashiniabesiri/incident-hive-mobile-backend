@@ -126,6 +126,26 @@ async function sendPasswordResetEmail(email, code, firstName) {
   });
 }
 
+async function sendExpertWelcomeEmail(email, temporaryPassword, firstName) {
+  await sendEmail({
+    to:      email,
+    subject: 'Welcome to Incident Hive — Your Expert Account',
+    html:    wrap(`
+      <p>Hello <strong>${firstName || 'there'}</strong>,</p>
+      <p>An administrator has created an expert account for you on <strong>Incident Hive</strong>.</p>
+      <p>You can log in immediately with the credentials below:</p>
+      <div style="margin:24px 0;padding:20px;background:#0f172a;border-radius:8px;">
+        <p style="margin:0 0 8px;color:#94a3b8;font-size:13px;">Email</p>
+        <p style="margin:0 0 16px;color:#fff;font-size:15px;font-weight:bold;">${email}</p>
+        <p style="margin:0 0 8px;color:#94a3b8;font-size:13px;">Temporary Password</p>
+        <p style="margin:0;color:#fff;font-size:15px;font-weight:bold;">${temporaryPassword}</p>
+      </div>
+      <p style="color:#f59e0b;font-weight:bold;">⚠️ Please change your password after your first login.</p>
+      <p style="color:#94a3b8;font-size:13px;">If you did not expect this account, please contact support.</p>
+    `),
+  });
+}
+
 async function sendAccountDeletionEmail(email) {
   await sendEmail({
     to:      email,
@@ -138,4 +158,4 @@ async function sendAccountDeletionEmail(email) {
   });
 }
 
-module.exports = { sendVerificationEmail, sendMfaCode, sendPasswordResetEmail, sendAccountDeletionEmail };
+module.exports = { sendVerificationEmail, sendMfaCode, sendPasswordResetEmail, sendExpertWelcomeEmail, sendAccountDeletionEmail };
