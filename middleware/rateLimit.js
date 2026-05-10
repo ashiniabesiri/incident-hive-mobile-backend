@@ -80,6 +80,14 @@ const verifyEmailLimiter = rateLimit({
   keyGenerator: (req) => req.body?.email?.toLowerCase() || req.ip,
 });
 
+// 3 resend-verification requests / 15 min per email
+const resendVerificationLimiter = rateLimit({
+  ...commonOptions,
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  keyGenerator: (req) => req.body?.email?.toLowerCase() || req.ip,
+});
+
 // 5 biometric login attempts / 15 min per user_id + device_id
 const biometricLoginLimiter = rateLimit({
   ...commonOptions,
@@ -102,6 +110,7 @@ const passwordLimiter = rateLimit({
 module.exports = {
   authLimiter,
   verifyEmailLimiter,
+  resendVerificationLimiter,
   loginLimiter,
   registerLimiter,
   refreshLimiter,

@@ -178,6 +178,48 @@ async function verifyEmail(req, res, next) {
   }
 }
 
+// ─── Resend Verification Email ────────────────────────────────────────────────
+async function resendVerification(req, res, next) {
+  try {
+    const { email } = req.body;
+
+    const user = await UserModel.findByEmail(email);
+
+    // Generic response — do not leak whether the email is registered.
+    const genericResponse = {
+      success: true,
+      data: {
+        message:
+          'If an account with this email exists and is unverified, a new verification code has been sent.',
+      },
+    };
+
+    if (!user || user.email_verified) {
+      return res.status(200).json(genericResponse);
+    }
+
+    const code = generateOtp();
+    await set(`${VERIFY_PREFIX}${email}`, code, VERIFY_TTL);
+
+    sendVerificationEmail(email, code, user.first_name).catch((err) =>
+      logger.error('Failed to resend verification email:', err)
+    );
+
+    return res.status(200).json({
+      ...genericResponse,
+      data: {
+        ...genericResponse.data,
+        // Development only: helps testing when SMTP email is not configured.
+        ...(process.env.NODE_ENV === 'development' && {
+          dev_verification_code: code,
+        }),
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 // ─── Login ────────────────────────────────────────────────────────────────────
 async function login(req, res, next) {
   try {
@@ -514,9 +556,18 @@ async function googleLogin(req, res, next) {
     let payload;
 
     try {
+      // Accept tokens issued for any of the configured Google client IDs:
+      //  • GOOGLE_CLIENT_ID — iOS native client (audience = iOS client ID).
+      //  • GOOGLE_WEB_CLIENT_ID — Web/server client used by Android Credential
+      //    Manager (audience = Web client ID).
+      const audiences = [
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_WEB_CLIENT_ID,
+      ].filter(Boolean);
+
       const ticket = await googleAuthClient.verifyIdToken({
         idToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
+        audience: audiences,
       });
 
       payload = ticket.getPayload();
@@ -535,6 +586,7 @@ async function googleLogin(req, res, next) {
     const emailVerified = payload.email_verified;
     const firstName = payload.given_name || 'User';
     const lastName = payload.family_name || '';
+    const profilePictureUrl = payload.picture || null;
 
     if (!email || !emailVerified) {
       return sendError(
@@ -557,6 +609,7 @@ async function googleLogin(req, res, next) {
         firstName,
         lastName,
         phoneNumber: null,
+        profilePictureUrl,
       });
 
       await UserModel.markEmailVerified(email);
@@ -893,6 +946,7 @@ async function resetPassword(req, res, next) {
 module.exports = {
   register,
   verifyEmail,
+  resendVerification,
   login,
   refreshToken,
   logout,

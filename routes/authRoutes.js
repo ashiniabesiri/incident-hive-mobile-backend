@@ -31,6 +31,7 @@ const { validate } = require('../middleware/validation');
 const {
   authLimiter,
   verifyEmailLimiter,
+  resendVerificationLimiter,
   loginLimiter,
   registerLimiter,
   refreshLimiter,
@@ -43,6 +44,7 @@ const {
 const {
   registerSchema,
   verifyEmailSchema,
+  resendVerificationSchema,
   loginSchema,
   refreshSchema,
   logoutSchema,
@@ -85,6 +87,18 @@ router.post(
   verifyEmailLimiter,
   validate(verifyEmailSchema),
   controller.verifyEmail
+);
+
+/**
+ * POST /api/v1/auth/resend-verification
+ * Resend the email verification OTP. Always returns a generic success response
+ * to avoid leaking which emails are registered.
+ */
+router.post(
+  '/resend-verification',
+  resendVerificationLimiter,
+  validate(resendVerificationSchema),
+  controller.resendVerification
 );
 
 /**

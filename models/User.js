@@ -10,12 +10,12 @@ const UserModel = {
   // CREATE
   // ──────────────────────────────────────────────────────────────────────────────
 
-  async create({ email, passwordHash, firstName, lastName, phoneNumber, role = 'reporter' }) {
+  async create({ email, passwordHash, firstName, lastName, phoneNumber, role = 'reporter', profilePictureUrl = null }) {
     const sql = `
       INSERT INTO users
-        (email, password_hash, first_name, last_name, phone_number, role)
+        (email, password_hash, first_name, last_name, phone_number, role, profile_picture_url)
       VALUES
-        ($1, $2, $3, $4, $5, $6)
+        ($1, $2, $3, $4, $5, $6, $7)
       RETURNING
         user_id, email, first_name, last_name, phone_number,
         profile_picture_url, role, mfa_enabled, email_verified,
@@ -29,6 +29,7 @@ const UserModel = {
       lastName.trim(),
       phoneNumber,
       role,
+      profilePictureUrl,
     ]);
 
     return rows[0];

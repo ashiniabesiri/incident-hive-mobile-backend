@@ -47,6 +47,10 @@ const verifyEmailSchema = Joi.object({
   verificationCode: sixDigitCode,
 });
 
+const resendVerificationSchema = Joi.object({
+  email: emailField,
+});
+
 const loginSchema = Joi.object({
   email: emailField,
   password: Joi.string().required(),
@@ -126,6 +130,7 @@ module.exports = {
   // Auth
   registerSchema,
   verifyEmailSchema,
+  resendVerificationSchema,
   loginSchema,
   refreshSchema,
   logoutSchema,
