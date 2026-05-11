@@ -113,8 +113,21 @@ async function assertIncidentOwnership(incidentId, reporterId, res) {
  * Complies with PII protection policy N002.
  */
 function stripExpertPii(bid) {
-  const { expert_email, expert_phone, ...safe } = bid;
-  return safe;
+  const { expert_email, expert_phone, ...rest } = bid;
+
+  // iOS reads `expert_name` and `expert_areas`; Android reads the original
+  // `expert_first_name` / `expert_last_name` / `expert_expertise_areas`.
+  // Keep all keys so both clients deserialize successfully.
+  const expert_name = [rest.expert_first_name, rest.expert_last_name]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+
+  return {
+    ...rest,
+    expert_name,
+    expert_areas: rest.expert_expertise_areas || [],
+  };
 }
 
 // ─── GET /api/incidents/:incident_id/bids ─────────────────────────────────────
@@ -339,6 +352,8 @@ async function acceptBid(req, res, next) {
       incidentId:    incident_id,
       incidentTitle: incident.title,
       reporterName:  `${reporter.first_name} ${reporter.last_name}`,
+      reporterEmail: reporter.email,
+      reporterPhone: reporter.phone_number,
     }).catch((err) => logger.error('notifyBidAccepted failed:', err));
 
     if (declinedExpertIds.length > 0) {

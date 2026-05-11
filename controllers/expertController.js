@@ -212,6 +212,10 @@ async function getFeedIncidentDetail(req, res, next) {
     const { incident_id } = req.params;
     const expertId = req.user.userId;
 
+    // Allow the expert to view any incident they've bid on, even after it
+    // moves to In Progress / Completed — otherwise the active-engagement
+    // screen breaks once the reporter accepts the bid. Open incidents
+    // remain visible to every expert regardless of bid history.
     const { rows } = await query(
       `SELECT
          i.incident_id,
@@ -232,10 +236,16 @@ async function getFeedIncidentDetail(req, res, next) {
          ) AS bid_count
        FROM incidents i
        WHERE i.incident_id = $1
-         AND i.status = 'Open'
          AND i.deleted_at IS NULL
-         AND i.bid_window_ends_at > NOW()`,
-      [incident_id]
+         AND (
+           (i.status = 'Open' AND i.bid_window_ends_at > NOW())
+           OR EXISTS (
+             SELECT 1 FROM bids b
+             WHERE b.incident_id = i.incident_id
+               AND b.expert_id = $2
+           )
+         )`,
+      [incident_id, expertId]
     );
 
     if (!rows[0]) {
@@ -334,9 +344,31 @@ async function updateAvailability(req, res, next) {
   }
 }
 
+// ─── GET /api/v1/experts/me/bids ──────────────────────────────────────────────
+
+async function getMyBidHistory(req, res, next) {
+  try {
+    const expertId = req.user.userId;
+
+    const page = Math.max(1, parseInt(req.query.page || '1', 10));
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit || '20', 10)));
+    const offset = (page - 1) * limit;
+
+    const rows = await BidModel.findByUser(expertId, { limit, offset });
+
+    return res.status(200).json({
+      success: true,
+      data: { bids: rows },
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   getFeedIncidents,
   getFeedIncidentDetail,
+  getMyBidHistory,
   getExpertProfile,
   updateAvailability,
 };

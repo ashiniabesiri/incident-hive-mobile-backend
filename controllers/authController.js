@@ -94,6 +94,10 @@ async function register(req, res, next) {
       phoneNumber,
     });
 
+    // Email verification is not required — mark the account as verified
+    // immediately so the user can log in right away.
+    await UserModel.markEmailVerified(email);
+
     const accessToken = TokenService.generateAccessToken({
       userId: user.user_id,
       email: user.email,
@@ -101,13 +105,6 @@ async function register(req, res, next) {
     });
     const refreshToken = await TokenService.generateRefreshToken(user.user_id, device_id || null);
     await TokenService.touchSession(user.user_id);
-
-    const code = generateOtp();
-    await set(`${VERIFY_PREFIX}${email}`, code, VERIFY_TTL);
-
-    sendVerificationEmail(email, code, firstName).catch((err) =>
-      logger.error('Failed to send verification email:', err)
-    );
 
     return res.status(201).json({
       success: true,
@@ -120,13 +117,8 @@ async function register(req, res, next) {
         refresh_token: refreshToken,
         token_type: 'Bearer',
         expires_in: ACCESS_TTL,
-        email_verified: false,
+        email_verified: true,
         session_timeout_seconds: SESSION_TTL,
-
-        // Development only: helps testing when SMTP email is not configured.
-        ...(process.env.NODE_ENV === 'development' && {
-          dev_verification_code: code,
-        }),
       },
     });
   } catch (error) {
@@ -241,15 +233,6 @@ async function login(req, res, next) {
         401,
         'INVALID_CREDENTIALS',
         'Invalid email or password.'
-      );
-    }
-
-    if (!user.email_verified) {
-      return sendError(
-        res,
-        403,
-        'EMAIL_NOT_VERIFIED',
-        'Please verify your email address before logging in.'
       );
     }
 

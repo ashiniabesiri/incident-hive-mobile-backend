@@ -148,8 +148,11 @@ app.use(auditLog);
 // ── API routes with /api/v1 prefix ─────────────────────────────────────────────
 app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/profile`, profileRoutes);
-app.use(`${API_PREFIX}/incidents`, incidentRoutes);
+// bidRoutes must mount BEFORE incidentRoutes: both share /incidents, and
+// incidentRoutes applies a router-level requireReporterOnly that would
+// otherwise intercept expert-only bid endpoints (e.g. POST /:id/bids).
 app.use(`${API_PREFIX}/incidents`, bidRoutes);
+app.use(`${API_PREFIX}/incidents`, incidentRoutes);
 app.use(API_PREFIX, expertRoutes);
 app.use(`${API_PREFIX}/notifications`, notificationRoutes);
 app.use(API_PREFIX, contentRoutes);

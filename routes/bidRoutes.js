@@ -23,7 +23,6 @@ const { Router } = require('express');
 const controller              = require('../controllers/bidController');
 const { requireAuth }         = require('../middleware/auth');
 const { requireReporter, requireExpert } = require('../middleware/rbac');
-const { requireMfaStepUp }    = require('../middleware/mfaStepUp');
 
 const router = Router();
 
@@ -66,7 +65,6 @@ router.get(
 router.post(
   '/:incident_id/bids/:bid_id/accept',
   requireReporter,
-  requireMfaStepUp,
   controller.acceptBid
 );
 

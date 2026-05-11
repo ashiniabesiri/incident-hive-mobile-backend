@@ -102,4 +102,15 @@ router.patch(
   controller.updateAvailability
 );
 
+/**
+ * GET /api/experts/me/bids
+ * Authenticated expert's bid history across all incidents they've bid on.
+ * Returns rows shaped for the iOS / Android bid-history screens.
+ */
+router.get(
+  '/experts/me/bids',
+  requireExpert,
+  controller.getMyBidHistory
+);
+
 module.exports = router;

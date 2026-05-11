@@ -528,6 +528,7 @@ async function deleteIncident(req, res, next) {
     res.status(200).json({
       success: true,
       message: 'Incident deleted successfully.',
+      data:    { message: 'Incident deleted successfully.' },
     });
   } catch (error) {
     next(error);

@@ -52,11 +52,25 @@ async function notifyNewBid(reporterId, { incidentId, incidentTitle, expertName,
   });
 }
 
-// Expert notified when reporter accepts their bid
-async function notifyBidAccepted(expertId, { incidentId, incidentTitle, reporterName }) {
+// Expert notified when reporter accepts their bid.
+// Reporter contact (email + phone) is included so the expert can reach out
+// directly — the engagement is now active and PII is unlocked under N002.
+async function notifyBidAccepted(
+  expertId,
+  { incidentId, incidentTitle, reporterName, reporterEmail, reporterPhone }
+) {
+  const contactLines = [
+    reporterEmail ? `Email: ${reporterEmail}` : null,
+    reporterPhone ? `Phone: ${reporterPhone}` : null,
+  ].filter(Boolean);
+
+  const contactBlock = contactLines.length
+    ? `\n\nContact ${reporterName}:\n${contactLines.join('\n')}`
+    : '';
+
   return safeCreate({
     userId: expertId, type: 'BID_ACCEPTED', title: 'Your Bid Was Accepted 🎉',
-    body:   `${reporterName} accepted your bid on "${incidentTitle}". Engagement is now in progress.`,
+    body:   `${reporterName} accepted your bid on "${incidentTitle}". Engagement is now in progress.${contactBlock}`,
     referenceId: incidentId,
   });
 }
