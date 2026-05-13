@@ -56,6 +56,7 @@ const {
   googleLoginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  verifyResetOtpSchema,
 } = require('../utils/validationSchemas');
 
 const router = Router();
@@ -167,8 +168,21 @@ router.post(
 );
 
 /**
+ * POST /api/v1/auth/verify-reset-otp
+ * Verify the password reset OTP and issue a short-lived reset token that the
+ * client must present to /reset-password.
+ */
+router.post(
+  '/verify-reset-otp',
+  passwordLimiter,
+  validate(verifyResetOtpSchema),
+  controller.verifyResetOtp
+);
+
+/**
  * POST /api/v1/auth/reset-password
- * Reset password using the OTP from forgot-password.
+ * Reset password using either the OTP (legacy single-step flow) or the
+ * reset token returned by /verify-reset-otp (preferred).
  */
 router.post(
   '/reset-password',

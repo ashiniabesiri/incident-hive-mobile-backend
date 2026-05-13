@@ -45,6 +45,9 @@ const registerSchema = Joi.object({
 const verifyEmailSchema = Joi.object({
   email: emailField,
   verificationCode: sixDigitCode,
+  // Optional so the legacy "verify-then-login-again" call still works; new
+  // clients pass it so we can issue tokens straight from verifyEmail.
+  device_id: Joi.string().min(3).max(255).optional().allow(null, ''),
 });
 
 const resendVerificationSchema = Joi.object({
@@ -117,13 +120,28 @@ const forgotPasswordSchema = Joi.object({
   email: Joi.string().email().trim().lowercase().required(),
 });
 
+// The reset-password endpoint accepts either:
+//  - a short-lived `reset_token` issued by /verify-reset-otp (preferred), OR
+//  - a raw `otp_code` (legacy single-step flow) for backward compatibility.
 const resetPasswordSchema = Joi.object({
+  email: Joi.string().email().trim().lowercase().required(),
+  otp_code: Joi.string().length(6).pattern(/^\d+$/).messages({
+    'string.length': 'Reset code must be 6 digits.',
+    'string.pattern.base': 'Reset code must be 6 digits.',
+  }),
+  reset_token: Joi.string().min(32).max(128),
+  new_password: strongPassword,
+  confirm_password: Joi.any()
+    .valid(Joi.ref('new_password'))
+    .messages({ 'any.only': 'Passwords do not match.' }),
+}).or('otp_code', 'reset_token');
+
+const verifyResetOtpSchema = Joi.object({
   email: Joi.string().email().trim().lowercase().required(),
   otp_code: Joi.string().length(6).pattern(/^\d+$/).required().messages({
     'string.length': 'Reset code must be 6 digits.',
     'string.pattern.base': 'Reset code must be 6 digits.',
   }),
-  new_password: strongPassword,
 });
 
 module.exports = {
@@ -142,4 +160,5 @@ module.exports = {
   googleLoginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  verifyResetOtpSchema,
 };

@@ -1,9 +1,16 @@
 const rateLimit = require('express-rate-limit');
+const logger = require('../utils/logger');
 
 function rateLimitHandler(req, res) {
   const retryAfterSeconds = req.rateLimit?.resetTime
     ? Math.ceil((req.rateLimit.resetTime - Date.now()) / 1000)
     : null;
+
+  // Log every rate-limit hit so devs can see why a request was rejected
+  // without having to peek at HTTP status codes from the client.
+  logger.warn(
+    `Rate limit hit: ${req.method} ${req.originalUrl} | email=${req.body?.email || '-'} | retry_after=${retryAfterSeconds}s`
+  );
 
   return res.status(429).json({
     success: false,

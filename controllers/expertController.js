@@ -100,19 +100,43 @@ async function getFeedIncidents(req, res, next) {
       );
     }
 
-    const whereClause = conditions.join(' AND ');
-
     let expertiseAreas = [];
     let relevanceExpr = '0';
-    const dataParams = [...filterParams];
 
+    // "For You" / AI-filtered mode: load the expert's expertise areas, restrict
+    // the result set to incidents that touch those areas, AND rank by how well
+    // they match. If the expert has no expertise areas saved we return an
+    // empty set so the UI can prompt them to fill in their profile.
+    //
+    // TODO: when a real recommendation model is available, replace the
+    // ANY+ILIKE relevance heuristic with a service-layer call (e.g. an LLM
+    // re-ranker or an embedding-similarity scorer) and keep this controller
+    // a thin pass-through.
     if (aiRanked) {
       expertiseAreas = await getExpertAreas(expertId);
 
-      if (expertiseAreas.length > 0) {
-        dataParams.push(expertiseAreas);
-        const areasParam = `$${dataParams.length}`;
+      if (expertiseAreas.length === 0) {
+        // No expertise saved — guarantee an empty list without hitting the
+        // data shape changes. `FALSE` short-circuits the WHERE.
+        conditions.push('FALSE');
+      } else {
+        filterParams.push(expertiseAreas);
+        const areasIdx = filterParams.length;
+        const areasParam = `$${areasIdx}`;
 
+        // Filter: an incident is "for this expert" if its type is one of the
+        // expert's areas, or one of those areas appears in title/description.
+        conditions.push(`(
+          i.incident_type = ANY(${areasParam}::text[])
+          OR EXISTS (
+            SELECT 1 FROM unnest(${areasParam}::text[]) AS area
+            WHERE i.title ILIKE '%' || area || '%'
+               OR i.description ILIKE '%' || area || '%'
+          )
+        )`);
+
+        // Rank: type match = 2 points, plus up to 3 keyword hits in
+        // title/description (so deeper matches surface higher).
         relevanceExpr = `
           (CASE WHEN i.incident_type = ANY(${areasParam}::text[]) THEN 2 ELSE 0 END)
           + LEAST(
@@ -128,9 +152,30 @@ async function getFeedIncidents(req, res, next) {
       }
     }
 
-    const orderClause = aiRanked
-      ? 'ORDER BY relevance_score DESC, i.created_at DESC'
-      : 'ORDER BY i.created_at DESC';
+    const whereClause = conditions.join(' AND ');
+
+    // filterParams is now the authoritative bound-param list for both the
+    // count query and the data query (data query appends ranking-only
+    // pagination params).
+    const dataParams = [...filterParams];
+
+    // expert_id is used both by the has_bid subquery and the ORDER BY clause
+    // (so incidents the expert has already bid on sink to the bottom).
+    dataParams.push(expertId);
+    const expertParam = `$${dataParams.length}`;
+
+    const hasBidExpr = `EXISTS (
+      SELECT 1 FROM bids b2
+      WHERE b2.incident_id = i.incident_id
+        AND b2.expert_id = ${expertParam}
+    )`;
+
+    // Incidents the expert hasn't bid on come first; within each group,
+    // honour the existing sort (relevance or recency).
+    const innerOrder = aiRanked
+      ? 'relevance_score DESC, i.created_at DESC'
+      : 'i.created_at DESC';
+    const orderClause = `ORDER BY (${hasBidExpr}) ASC, ${innerOrder}`;
 
     dataParams.push(limit);
     const limitParam = `$${dataParams.length}`;
@@ -156,7 +201,8 @@ async function getFeedIncidents(req, res, next) {
           SELECT COUNT(*)::int
           FROM bids b
           WHERE b.incident_id = i.incident_id
-        ) AS bid_count
+        ) AS bid_count,
+        ${hasBidExpr} AS has_bid
       FROM incidents i
       WHERE ${whereClause}
       ${orderClause}

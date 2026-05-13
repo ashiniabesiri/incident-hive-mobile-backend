@@ -130,11 +130,14 @@ const UserModel = {
   // ──────────────────────────────────────────────────────────────────────────────
 
   async markEmailVerified(email) {
+    // Return enough fields for the verify-email controller to mint a complete
+    // access token. Forgetting `role` here makes the JWT role-less, which
+    // then trips every RBAC middleware downstream with FORBIDDEN.
     const { rows } = await query(
       `UPDATE users
        SET email_verified = true, updated_at = NOW()
        WHERE LOWER(email) = LOWER($1)
-       RETURNING user_id, email, email_verified`,
+       RETURNING user_id, email, email_verified, role, first_name, last_name`,
       [email]
     );
 

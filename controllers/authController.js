@@ -34,10 +34,16 @@ const SALT_ROUNDS = 10;
 const VERIFY_PREFIX  = 'verify:';
 const MFA_PREFIX     = 'mfa:';
 const PW_RESET_PREFIX = 'pwreset:';
+const PW_RESET_TOKEN_PREFIX = 'pwreset_token:';
 
 const VERIFY_TTL   = parseInt(process.env.EMAIL_VERIFICATION_TTL_SECONDS || '900', 10);
 const MFA_TTL      = parseInt(process.env.MFA_OTP_TTL_SECONDS || '300', 10);
-const PW_RESET_TTL = parseInt(process.env.PASSWORD_RESET_TTL_SECONDS || '900', 10);
+const PW_RESET_TTL = parseInt(process.env.PASSWORD_RESET_TTL_SECONDS || '600', 10);
+const PW_RESET_TOKEN_TTL = parseInt(process.env.PASSWORD_RESET_TOKEN_TTL_SECONDS || '600', 10);
+
+function sha256(value) {
+  return crypto.createHash('sha256').update(String(value)).digest('hex');
+}
 const { ACCESS_TTL, SESSION_TTL } = TokenService;
 
 // ─── Google OAuth client ──────────────────────────────────────────────────────
@@ -76,6 +82,7 @@ async function register(req, res, next) {
     const existing = await UserModel.findByEmail(email);
 
     if (existing) {
+      logger.info(`Register: account already exists for ${email} (no email sent).`);
       return sendError(
         res,
         409,
@@ -94,17 +101,16 @@ async function register(req, res, next) {
       phoneNumber,
     });
 
-    // Email verification is not required — mark the account as verified
-    // immediately so the user can log in right away.
-    await UserModel.markEmailVerified(email);
+    // Email verification is required on first sign-up. Issue an OTP, store
+    // it in Redis under `verify:{email}`, and email it to the user. No
+    // session tokens are returned — the client must complete /verify-email
+    // before it can sign in.
+    const verificationCode = generateOtp();
+    await set(`${VERIFY_PREFIX}${email}`, verificationCode, VERIFY_TTL);
 
-    const accessToken = TokenService.generateAccessToken({
-      userId: user.user_id,
-      email: user.email,
-      role: user.role,
-    });
-    const refreshToken = await TokenService.generateRefreshToken(user.user_id, device_id || null);
-    await TokenService.touchSession(user.user_id);
+    sendVerificationEmail(email, verificationCode, user.first_name).catch((err) =>
+      logger.error('Failed to send verification email on register:', err)
+    );
 
     return res.status(201).json({
       success: true,
@@ -113,12 +119,14 @@ async function register(req, res, next) {
         email: user.email,
         role: user.role,
         user_type: user.role,
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        token_type: 'Bearer',
-        expires_in: ACCESS_TTL,
-        email_verified: true,
-        session_timeout_seconds: SESSION_TTL,
+        email_verified: false,
+        verification_required: true,
+        message: 'Account created. Check your inbox for the verification code.',
+        // Development-only escape hatch when SMTP isn't configured. Mirrors
+        // the resendVerification controller's existing pattern.
+        ...(process.env.NODE_ENV === 'development' && {
+          dev_verification_code: verificationCode,
+        }),
       },
     });
   } catch (error) {
@@ -129,7 +137,7 @@ async function register(req, res, next) {
 // ─── Verify Email ─────────────────────────────────────────────────────────────
 async function verifyEmail(req, res, next) {
   try {
-    const { email, verificationCode } = req.body;
+    const { email, verificationCode, device_id } = req.body;
 
     const stored = await get(`${VERIFY_PREFIX}${email}`);
 
@@ -159,10 +167,43 @@ async function verifyEmail(req, res, next) {
 
     await del(`${VERIFY_PREFIX}${email}`);
 
+    // Issue auth tokens here so the user lands straight in the app after
+    // verifying — they don't need to bounce back to login and re-enter
+    // credentials. This is "verify on first login" UX.
+    const accessToken = TokenService.generateAccessToken({
+      userId: user.user_id,
+      email: user.email,
+      role: user.role,
+      amr: ['email'],
+    });
+    const refreshToken = await TokenService.generateRefreshToken(user.user_id, device_id || null);
+    await TokenService.touchSession(user.user_id);
+    await UserModel.updateLastLogin(user.user_id);
+
+    if (device_id) {
+      await UserDeviceModel.upsertDevice({
+        deviceId: device_id,
+        userId: user.user_id,
+      });
+    }
+
+    logger.info(`Verify email: ${email} verified — tokens issued.`);
+
     return res.status(200).json({
       success: true,
       data: {
-        message: 'Email verified successfully. You can now log in.',
+        user_id: user.user_id,
+        email: user.email,
+        role: user.role,
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        token_type: 'Bearer',
+        expires_in: ACCESS_TTL,
+        email_verified: true,
+        biometric_enabled: false,
+        mfa_required: false,
+        session_timeout_seconds: SESSION_TTL,
+        message: 'Email verified successfully.',
       },
     });
   } catch (error) {
@@ -186,8 +227,23 @@ async function resendVerification(req, res, next) {
       },
     };
 
-    if (!user || user.email_verified) {
+    if (!user) {
+      logger.info(`Resend verification: no user for ${email} (silent generic response).`);
       return res.status(200).json(genericResponse);
+    }
+    if (user.email_verified) {
+      // Tell the client explicitly so it can route the user to login instead
+      // of leaving them stranded on the verify-email screen. By the time a
+      // client knows this email, the account's existence is already known
+      // to them, so this is not an enumeration leak.
+      logger.info(`Resend verification: ${email} is already verified — telling client.`);
+      return res.status(200).json({
+        success: true,
+        data: {
+          message: 'This account is already verified. Please log in.',
+          already_verified: true,
+        },
+      });
     }
 
     const code = generateOtp();
@@ -243,6 +299,33 @@ async function login(req, res, next) {
         'ACCOUNT_NOT_ACTIVE',
         'Your account has been suspended. Please contact support.'
       );
+    }
+
+    // First-time-login email verification gate. Issue a fresh OTP and ask
+    // the client to redirect to the verification screen. The OTP is sent
+    // asynchronously so the response isn't blocked by SMTP latency.
+    if (!user.email_verified) {
+      const verificationCode = generateOtp();
+      await set(`${VERIFY_PREFIX}${email}`, verificationCode, VERIFY_TTL);
+
+      sendVerificationEmail(email, verificationCode, user.first_name).catch((err) =>
+        logger.error('Failed to send verification email on login:', err)
+      );
+
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'EMAIL_NOT_VERIFIED',
+          message: 'Please verify your email before logging in. A new code has been sent.',
+        },
+        data: {
+          email: user.email,
+          // Development-only escape hatch when SMTP isn't configured.
+          ...(process.env.NODE_ENV === 'development' && {
+            dev_verification_code: verificationCode,
+          }),
+        },
+      });
     }
 
     // Look up biometric status for this device
@@ -870,7 +953,11 @@ async function forgotPassword(req, res, next) {
     }
 
     const otp = generateOtp();
-    await set(`${PW_RESET_PREFIX}${user.email.toLowerCase()}`, otp, PW_RESET_TTL);
+    // Store only the hashed OTP; invalidate any prior reset OTP/reset token
+    // for this email so older codes can't be reused.
+    const emailKey = user.email.toLowerCase();
+    await del(`${PW_RESET_PREFIX}${emailKey}`, `${PW_RESET_TOKEN_PREFIX}${emailKey}`);
+    await set(`${PW_RESET_PREFIX}${emailKey}`, sha256(otp), PW_RESET_TTL);
 
     sendPasswordResetEmail(user.email, otp, user.first_name).catch((err) =>
       logger.error('Password reset email failed:', err)
@@ -879,7 +966,41 @@ async function forgotPassword(req, res, next) {
     return res.status(200).json({
       success: true,
       data: {
-        message: 'If an account with that email exists, a reset code has been sent.',
+        message: 'If an account exists for this email, an OTP has been sent.',
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+// ─── POST /api/v1/auth/verify-reset-otp ───────────────────────────────────────
+
+async function verifyResetOtp(req, res, next) {
+  try {
+    const { email, otp_code } = req.body;
+    const emailKey = email.toLowerCase();
+
+    const storedOtpHash = await get(`${PW_RESET_PREFIX}${emailKey}`);
+    if (!storedOtpHash) {
+      return sendError(res, 400, 'RESET_CODE_EXPIRED', 'Reset code has expired or was not requested.');
+    }
+
+    if (!timingSafeEqual(sha256(otp_code), storedOtpHash)) {
+      return sendError(res, 400, 'INVALID_RESET_CODE', 'Invalid or expired OTP.');
+    }
+
+    // Issue a short-lived reset token. The OTP itself is consumed here so it
+    // can't be reused; the client must present the token to /reset-password.
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    await del(`${PW_RESET_PREFIX}${emailKey}`);
+    await set(`${PW_RESET_TOKEN_PREFIX}${emailKey}`, sha256(resetToken), PW_RESET_TOKEN_TTL);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        message: 'OTP verified successfully.',
+        reset_token: resetToken,
       },
     });
   } catch (error) {
@@ -891,16 +1012,28 @@ async function forgotPassword(req, res, next) {
 
 async function resetPassword(req, res, next) {
   try {
-    const { email, otp_code, new_password } = req.body;
+    const { email, otp_code, reset_token, new_password } = req.body;
+    const emailKey = email.toLowerCase();
 
-    const storedOtp = await get(`${PW_RESET_PREFIX}${email.toLowerCase()}`);
-
-    if (!storedOtp) {
-      return sendError(res, 400, 'RESET_CODE_EXPIRED', 'Reset code has expired or was not requested.');
-    }
-
-    if (!timingSafeEqual(otp_code, storedOtp)) {
-      return sendError(res, 400, 'INVALID_RESET_CODE', 'Invalid reset code.');
+    // Two flows are supported: the new 3-step flow that presents a reset
+    // token issued by /verify-reset-otp, and the legacy single-step flow that
+    // posts the raw OTP. The schema enforces that at least one is present.
+    if (reset_token) {
+      const storedTokenHash = await get(`${PW_RESET_TOKEN_PREFIX}${emailKey}`);
+      if (!storedTokenHash) {
+        return sendError(res, 400, 'RESET_TOKEN_EXPIRED', 'Reset session has expired. Please request a new code.');
+      }
+      if (!timingSafeEqual(sha256(reset_token), storedTokenHash)) {
+        return sendError(res, 400, 'INVALID_RESET_TOKEN', 'Invalid reset session. Please request a new code.');
+      }
+    } else {
+      const storedOtpHash = await get(`${PW_RESET_PREFIX}${emailKey}`);
+      if (!storedOtpHash) {
+        return sendError(res, 400, 'RESET_CODE_EXPIRED', 'Reset code has expired or was not requested.');
+      }
+      if (!timingSafeEqual(sha256(otp_code), storedOtpHash)) {
+        return sendError(res, 400, 'INVALID_RESET_CODE', 'Invalid reset code.');
+      }
     }
 
     const user = await UserModel.findByEmail(email);
@@ -911,13 +1044,18 @@ async function resetPassword(req, res, next) {
     const newHash = await bcrypt.hash(new_password, SALT_ROUNDS);
     await UserModel.updatePassword(user.user_id, newHash);
 
-    await del(`${PW_RESET_PREFIX}${email.toLowerCase()}`);
+    // Invalidate any leftover reset artefacts and all existing sessions so
+    // attackers with stolen refresh tokens lose access on password change.
+    await del(
+      `${PW_RESET_PREFIX}${emailKey}`,
+      `${PW_RESET_TOKEN_PREFIX}${emailKey}`
+    );
     await TokenService.revokeAllTokens(user.user_id);
 
     return res.status(200).json({
       success: true,
       data: {
-        message: 'Password has been reset successfully. Please log in with your new password.',
+        message: 'Password reset successfully. Please log in with your new password.',
       },
     });
   } catch (error) {
@@ -943,5 +1081,6 @@ module.exports = {
   biometricLogin,
   getProfile,
   forgotPassword,
+  verifyResetOtp,
   resetPassword,
 };
