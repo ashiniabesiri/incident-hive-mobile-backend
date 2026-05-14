@@ -63,9 +63,23 @@ app.use(
 );
 
 // ── CORS ───────────────────────────────────────────────────────────────────────
+// In production, FRONTEND_URL pins origin to a single trusted host.
+// In development, requests from native iOS apps have no Origin header
+// (cors passes them through), and browser-based devtools may come from
+// a LAN IP — so accept a comma-separated allowlist.
+const corsAllowlist = (process.env.FRONTEND_URL || 'http://localhost:3001')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true); // native mobile / curl / same-origin
+      if (process.env.NODE_ENV !== 'production') return cb(null, true);
+      if (corsAllowlist.includes(origin)) return cb(null, true);
+      return cb(new Error(`CORS: origin ${origin} not allowed`));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -105,7 +119,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // ── Health check ───────────────────────────────────────────────────────────────
-app.get('/health', async (req, res) => {
+const healthHandler = async (req, res) => {
   const { getPool } = require('./config/database');
   const { getRedis } = require('./config/redis');
 
@@ -137,6 +151,13 @@ app.get('/health', async (req, res) => {
       redis: redisStatus,
     },
   });
+};
+app.get('/health', healthHandler);
+app.get(`${API_PREFIX}/health`, healthHandler);
+
+// Simple root probe so you can hit http://<host>:<port>/ from a phone browser.
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', service: 'incident-hive-api', api: API_PREFIX });
 });
 
 // ── Static file serving ────────────────────────────────────────────────────────
@@ -181,10 +202,16 @@ async function startServer() {
     await connectRedis();
     logger.info('Redis connected');
 
-    app.listen(PORT, () => {
-      logger.info(`Incident Hive API running on port ${PORT}`);
+    // Bind to localhost by default: the iOS Simulator reaches us as
+    // "localhost", and the Android Emulator's "10.0.2.2" alias also
+    // resolves to the host's loopback, so neither needs LAN exposure.
+    // Override with HOST=0.0.0.0 in .env if you ever need to hit the
+    // dev server from another device on the same Wi-Fi.
+    const HOST = process.env.HOST || 'localhost';
+    app.listen(PORT, HOST, () => {
+      logger.info(`Incident Hive API running on ${HOST}:${PORT}`);
       logger.info(`API docs  →  http://localhost:${PORT}/api-docs`);
-      logger.info(`Health   →  http://localhost:${PORT}/health`);
+      logger.info(`Health    →  http://localhost:${PORT}/health`);
       logger.info(`API base  →  http://localhost:${PORT}${API_PREFIX}`);
     });
   } catch (error) {

@@ -19,6 +19,7 @@ const Joi = require('joi');
 const IncidentModel    = require('../models/Incident');
 const AttachmentModel  = require('../models/Attachment');
 const BidModel         = require('../models/Bid');
+const IncidentReviewModel = require('../models/IncidentReview');
 const { uploadFiles, deleteFiles } = require('../services/fileUploadService');
 const { query }        = require('../config/database');
 const logger           = require('../utils/logger');
@@ -535,6 +536,105 @@ async function deleteIncident(req, res, next) {
   }
 }
 
+// ─── POST /api/incidents/:incident_id/review ───────────────────────────────────
+
+const submitReviewSchema = Joi.object({
+  rating:  Joi.number().integer().min(1).max(5).required().messages({
+    'any.required':   'Rating is required.',
+    'number.base':    'Rating must be a number between 1 and 5.',
+    'number.min':     'Rating must be between 1 and 5.',
+    'number.max':     'Rating must be between 1 and 5.',
+    'number.integer': 'Rating must be an integer between 1 and 5.',
+  }),
+  comment: Joi.string().trim().max(2000).allow('', null).messages({
+    'string.max': 'Comment must not exceed 2000 characters.',
+  }),
+});
+
+/**
+ * submitReview
+ *
+ * Lets a reporter leave a single review for the expert who worked their
+ * incident. Guards:
+ *
+ *   • Ownership: the requester must be the incident's reporter.
+ *   • Status:    the incident must already be Completed — no rating an
+ *                in-flight engagement.
+ *   • Engagement exists: the incident must have an Accepted bid; otherwise
+ *                no expert is linked to the incident.
+ *   • Uniqueness: PK on incident_id enforces one review per incident.
+ *                We check beforehand so the response is a clean 409 instead
+ *                of an opaque DB error.
+ */
+async function submitReview(req, res, next) {
+  try {
+    const { incident_id } = req.params;
+    const reporterId = req.user.userId;
+
+    const body = validateBody(submitReviewSchema, req.body, res);
+    if (!body) return;
+
+    const incident = await assertOwnership(incident_id, reporterId, res);
+    if (!incident) return;
+
+    if (incident.status !== 'Completed') {
+      return res.status(409).json({
+        success: false,
+        error: {
+          code: 'INCIDENT_NOT_COMPLETED',
+          message: `You can only review a Completed incident. Current status: '${incident.status}'.`,
+        },
+      });
+    }
+
+    // Identify the expert from the accepted bid. There is exactly one because
+    // accepting a bid in BidModel.setBidStatus() also declines the rest.
+    const acceptedBidRows = await query(
+      `SELECT expert_id FROM bids
+        WHERE incident_id = $1 AND status = 'Accepted'
+        LIMIT 1`,
+      [incident_id]
+    );
+    const acceptedBid = acceptedBidRows.rows[0];
+    if (!acceptedBid) {
+      return res.status(409).json({
+        success: false,
+        error: {
+          code: 'NO_ACCEPTED_BID',
+          message: 'Cannot review an incident that has no accepted bid.',
+        },
+      });
+    }
+
+    const existing = await IncidentReviewModel.findByIncidentId(incident_id);
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        error: {
+          code: 'DUPLICATE_REVIEW',
+          message: 'You have already submitted a review for this incident.',
+        },
+      });
+    }
+
+    const review = await IncidentReviewModel.create({
+      incidentId: incident_id,
+      reporterId,
+      expertId:   acceptedBid.expert_id,
+      rating:     body.rating,
+      comment:    body.comment,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Review submitted successfully.',
+      data:    { review },
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   createIncident,
   listIncidents,
@@ -542,4 +642,5 @@ module.exports = {
   updateIncident,
   updateStatus,
   deleteIncident,
+  submitReview,
 };

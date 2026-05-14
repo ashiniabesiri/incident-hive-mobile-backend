@@ -8,6 +8,10 @@ const logger = require('../utils/logger');
 const PG_UNIQUE_VIOLATION = '23505';
 const PG_FOREIGN_KEY_VIOLATION = '23503';
 const PG_NOT_NULL_VIOLATION = '23502';
+// 22P02 fires when Postgres can't parse a value into the column type — most
+// commonly a malformed UUID coming through a path param. Returning the
+// generic 500 fallback for this hides the real cause from API consumers.
+const PG_INVALID_TEXT_REPRESENTATION = '22P02';
 
 function sendError(res, status, code, message, details = null) {
   return res.status(status).json({
@@ -54,6 +58,15 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
       400,
       'REQUIRED_FIELD_MISSING',
       'A required field is missing.'
+    );
+  }
+
+  if (err.code === PG_INVALID_TEXT_REPRESENTATION) {
+    return sendError(
+      res,
+      400,
+      'INVALID_ID',
+      'One of the provided identifiers is not in a valid format.'
     );
   }
 

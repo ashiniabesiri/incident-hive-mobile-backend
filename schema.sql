@@ -315,6 +315,28 @@ CREATE INDEX IF NOT EXISTS idx_testimonials_created_at
 
 
 -- ════════════════════════════════════════════════════════════════════════════
+-- 9b. INCIDENT_REVIEWS TABLE
+-- ════════════════════════════════════════════════════════════════════════════
+-- Per-engagement reviews written by reporters after an incident completes.
+-- Distinct from `testimonials` (which is marketing copy). One review per
+-- incident is enforced by the PK; the (expert_id, incident_id) composite
+-- gives us cheap "all reviews for this expert" lookups for their profile.
+-- ════════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS incident_reviews (
+    incident_id    UUID PRIMARY KEY REFERENCES incidents(incident_id) ON DELETE CASCADE,
+    reporter_id    UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    expert_id      UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    rating         SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    comment        TEXT,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_incident_reviews_expert
+    ON incident_reviews(expert_id, created_at DESC);
+
+
+-- ════════════════════════════════════════════════════════════════════════════
 -- 10. AUDIT_LOGS TABLE
 -- ════════════════════════════════════════════════════════════════════════════
 -- Immutable append-only log of state-changing API actions.

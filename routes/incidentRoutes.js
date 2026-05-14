@@ -122,4 +122,21 @@ router.delete(
   controller.deleteIncident
 );
 
+/**
+ * POST /api/incidents/:incident_id/review
+ * Submit a single review (rating + optional comment) for the expert who
+ * completed this incident. Reporter-only (already enforced by router-level
+ * requireReporterOnly); ownership of the incident is checked in the handler.
+ *
+ * Body: { rating: 1..5, comment?: string (max 2000 chars) }
+ *
+ * 409 INCIDENT_NOT_COMPLETED — incident isn't Completed.
+ * 409 NO_ACCEPTED_BID         — no expert linked to this incident.
+ * 409 DUPLICATE_REVIEW        — incident already has a review.
+ */
+router.post(
+  '/:incident_id/review',
+  controller.submitReview
+);
+
 module.exports = router;

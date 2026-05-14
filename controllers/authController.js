@@ -332,7 +332,11 @@ async function login(req, res, next) {
     const device = await UserDeviceModel.findByUserAndDevice(user.user_id, device_id);
     const biometricEnabled = device?.biometric_enabled || false;
 
-    if (user.mfa_enabled) {
+    // MFA is now mandatory on every password-based login, regardless of the
+    // user.mfa_enabled flag. The flag still drives the in-app MFA *setup*
+    // flow, but the login step always requires a fresh email OTP. Biometric
+    // and Google sign-in remain second-factor-equivalent and skip this path.
+    {
       const mfaCode = generateOtp();
       await set(`${MFA_PREFIX}${email}`, mfaCode, MFA_TTL);
 

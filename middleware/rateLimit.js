@@ -45,11 +45,21 @@ const loginLimiter = rateLimit({
   skipSuccessfulRequests: true,
 });
 
-// 3 registrations / hour
+// Registration throttle. In production we cap successful sign-ups at 3 / hour
+// per IP — this is meant to slow down spam account creation, NOT to punish a
+// user who mistypes a password and retries. Two behaviour changes vs. the
+// previous config:
+//
+//   • `skipFailedRequests: true` — 4xx responses (validation errors, duplicate
+//     email, etc.) don't consume the budget, so a few bad attempts in a row
+//     no longer surface as "Too many requests" on the next legitimate try.
+//   • `max` is unbounded in non-production so devs aren't locked out after
+//     three test signups in the same hour. Production keeps the strict 3.
 const registerLimiter = rateLimit({
   ...commonOptions,
   windowMs: 60 * 60 * 1000,
-  max: 3,
+  max: process.env.NODE_ENV === 'production' ? 3 : 1000,
+  skipFailedRequests: true,
 });
 
 // 10 refresh attempts / 15 min per device_id

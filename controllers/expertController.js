@@ -6,8 +6,14 @@
 const Joi = require('joi');
 
 const ExpertProfileModel = require('../models/ExpertProfile');
+const UserModel = require('../models/User');
 const BidModel = require('../models/Bid');
 const { query } = require('../config/database');
+
+// Loose UUID v1–v5 check — enough to reject obvious garbage before it reaches
+// Postgres, which would otherwise throw `22P02 invalid_text_representation`
+// and surface as a generic 500.
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const {
   filterIncidentForFeed,
@@ -329,7 +335,41 @@ async function getExpertProfile(req, res, next) {
   try {
     const { expert_id } = req.params;
 
-    const profileRow = await ExpertProfileModel.findWithUser(expert_id);
+    if (!UUID_REGEX.test(expert_id)) {
+      return sendError(
+        res,
+        400,
+        'INVALID_EXPERT_ID',
+        'Invalid expert id.'
+      );
+    }
+
+    let profileRow = await ExpertProfileModel.findWithUser(expert_id);
+
+    // findWithUser is an INNER JOIN on expert_profiles. An expert who has
+    // placed bids but never filled in their detailed profile won't have a
+    // row in expert_profiles, so the JOIN returns nothing and the user
+    // would otherwise see a 404 from "View Profile" on every fresh expert.
+    // Fall back to the bare user record so the screen can always render
+    // *some* profile — the role-specific fields just come back empty.
+    if (!profileRow) {
+      const user = await UserModel.findById(expert_id);
+      if (user && user.role === 'expert' && user.account_status !== 'deleted') {
+        profileRow = {
+          user_id: user.user_id,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          profile_picture_url: user.profile_picture_url || null,
+          bio: null,
+          expertise_areas: [],
+          credentials: null,
+          availability_status: null,
+          completed_engagements: 0,
+          total_earned: 0,
+          profile_created_at: user.created_at,
+        };
+      }
+    }
 
     if (!profileRow) {
       return sendError(
