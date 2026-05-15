@@ -242,7 +242,7 @@ async function uploadProfilePicture(req, res, next) {
       });
     }
 
-    const uploaded = await uploadFile(req.file);
+    const uploaded = await uploadFile(req.file, 'profiles');
 
     const updated = await UserModel.updateProfilePicture(
       req.user.userId,

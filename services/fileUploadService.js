@@ -92,27 +92,29 @@ function sanitiseFilename(originalName) {
 /**
  * buildStorageKey
  * Generates a unique storage path for a file.
- * Format: incidents/{uuid}_{sanitisedName}
+ * Format: {subDir}/{uuid}_{sanitisedName}
  *
  * @param {string} originalName
+ * @param {string} [subDir='incidents']
  * @returns {string}
  */
-function buildStorageKey(originalName) {
+function buildStorageKey(originalName, subDir = 'incidents') {
   const safe = sanitiseFilename(originalName);
-  return `incidents/${uuidv4()}_${safe}`;
+  return `${subDir}/${uuidv4()}_${safe}`;
 }
 
 // ─── Local disk upload ─────────────────────────────────────────────────────────
 
 /**
  * uploadToLocal
- * Writes a multer buffer to the local uploads/incidents/ directory.
+ * Writes a multer buffer to the local uploads/{subDir}/ directory.
  *
- * @param {Object} file  Multer file object { originalname, buffer, size, mimetype }
- * @returns {Object}     { fileName, fileUrl, fileSize, mimeType }
+ * @param {Object} file           Multer file object { originalname, buffer, size, mimetype }
+ * @param {string} [subDir='incidents']
+ * @returns {Object}              { fileName, fileUrl, fileSize, mimeType }
  */
-async function uploadToLocal(file) {
-  const storageKey = buildStorageKey(file.originalname);
+async function uploadToLocal(file, subDir = 'incidents') {
+  const storageKey = buildStorageKey(file.originalname, subDir);
   const filePath   = path.join(process.cwd(), 'uploads', storageKey);
 
   // Ensure the subdirectory exists (in case storageKey contains a subpath)
@@ -142,13 +144,14 @@ async function uploadToLocal(file) {
  * Streams a multer buffer to an S3-compatible bucket using @aws-sdk/lib-storage.
  * lib-storage handles multipart uploads automatically for large files.
  *
- * @param {Object} file  Multer file object { originalname, buffer, size, mimetype }
- * @returns {Object}     { fileName, fileUrl, fileSize, mimeType }
+ * @param {Object} file           Multer file object { originalname, buffer, size, mimetype }
+ * @param {string} [subDir='incidents']
+ * @returns {Object}              { fileName, fileUrl, fileSize, mimeType }
  */
-async function uploadToS3(file) {
+async function uploadToS3(file, subDir = 'incidents') {
   const client     = getS3Client();
   const Upload     = client._Upload;
-  const storageKey = buildStorageKey(file.originalname);
+  const storageKey = buildStorageKey(file.originalname, subDir);
 
   const upload = new Upload({
     client,
@@ -224,22 +227,24 @@ async function deleteFiles(fileUrls = []) {
  * uploadFile
  * Dispatch to local or S3 based on FILE_STORAGE env var.
  *
- * @param {Object} file  Multer file object from req.files
+ * @param {Object} file            Multer file object from req.files
+ * @param {string} [subDir='incidents']  Storage sub-directory (e.g. 'profiles')
  * @returns {{ fileName, fileUrl, fileSize, mimeType }}
  */
-async function uploadFile(file) {
-  return USE_S3 ? uploadToS3(file) : uploadToLocal(file);
+async function uploadFile(file, subDir = 'incidents') {
+  return USE_S3 ? uploadToS3(file, subDir) : uploadToLocal(file, subDir);
 }
 
 /**
  * uploadFiles
  * Upload multiple files concurrently.
  *
- * @param {Object[]} files  Array of Multer file objects from req.files
+ * @param {Object[]} files         Array of Multer file objects from req.files
+ * @param {string}   [subDir='incidents']
  * @returns {Array<{ fileName, fileUrl, fileSize, mimeType }>}
  */
-async function uploadFiles(files = []) {
-  return Promise.all(files.map(uploadFile));
+async function uploadFiles(files = [], subDir = 'incidents') {
+  return Promise.all(files.map(f => uploadFile(f, subDir)));
 }
 
 module.exports = { uploadFile, uploadFiles, deleteFile, deleteFiles };
