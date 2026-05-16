@@ -1,21 +1,7 @@
-/**
- * middleware/auth.js
- * JWT verification middleware.
- *
- * - Extracts the Bearer token from the Authorization header
- * - Verifies the JWT signature and expiry
- * - Checks the Redis session is still active (inactivity guard)
- * - Slides the session TTL on every request
- * - Attaches { userId, email, role } to req.user
- */
 
 const TokenService = require('../services/tokenService');
 const logger = require('../utils/logger');
 
-/**
- * requireAuth
- * Protect any route — rejects requests without a valid, unexpired JWT.
- */
 async function requireAuth(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
@@ -29,7 +15,6 @@ async function requireAuth(req, res, next) {
 
     const token = authHeader.split(' ')[1];
 
-    // 1. Verify JWT signature + expiry
     let decoded;
     try {
       decoded = TokenService.verifyAccessToken(token);
@@ -43,7 +28,6 @@ async function requireAuth(req, res, next) {
 
     const userId = decoded.sub;
 
-    // 2. Check Redis session is still alive (30-min inactivity window)
     const sessionActive = await TokenService.isSessionActive(userId);
     if (!sessionActive) {
       return res.status(401).json({
@@ -52,10 +36,8 @@ async function requireAuth(req, res, next) {
       });
     }
 
-    // 3. Slide the inactivity TTL forward
     await TokenService.touchSession(userId);
 
-    // 4. Attach user info for downstream handlers
     req.user = {
       userId,
       email: decoded.email,
@@ -69,16 +51,11 @@ async function requireAuth(req, res, next) {
   }
 }
 
-/**
- * optionalAuth
- * Like requireAuth but doesn't reject unauthenticated requests.
- * Used on endpoints that serve different data based on whether the user is logged in.
- */
 async function optionalAuth(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return next(); // unauthenticated — continue without req.user
+      return next();
     }
 
     const token = authHeader.split(' ')[1];
@@ -91,7 +68,6 @@ async function optionalAuth(req, res, next) {
       req.user = { userId, email: decoded.email, role: decoded.role };
     }
   } catch {
-    // Silently ignore invalid tokens in optional mode
   }
   next();
 }

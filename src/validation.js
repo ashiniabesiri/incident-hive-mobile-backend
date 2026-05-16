@@ -1,19 +1,6 @@
-/**
- * middleware/validation.js
- * Factory that creates an Express middleware from a Joi schema.
- *
- * Usage:
- *   router.post('/register', validate(registerSchema), registerHandler);
- */
 
 const logger = require('../utils/logger');
 
-/**
- * validate
- * @param {import('joi').Schema} schema - Joi schema to validate req.body against
- * @param {string} [source='body'] - 'body' | 'query' | 'params'
- * @returns Express middleware
- */
 function validate(schema, source = 'body') {
   return (req, res, next) => {
     const { error, value } = schema.validate(req[source], {
@@ -33,7 +20,6 @@ function validate(schema, source = 'body') {
       });
     }
 
-    // Replace the source with the sanitised / coerced Joi output
     req[source] = value;
     next();
   };

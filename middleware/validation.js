@@ -11,11 +11,6 @@ function sendValidationError(res, errors) {
   });
 }
 
-/**
- * validate(schema, source?)
- * Validates req[source] against a Joi schema.
- * Strips unknown fields and writes sanitised output back to req[source].
- */
 function validate(schema, source = 'body') {
   return (req, res, next) => {
     const { error, value } = schema.validate(req[source], {

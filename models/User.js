@@ -1,14 +1,8 @@
-/**
- * models/User.js
- * All PostgreSQL queries relating to the `users` table.
- */
 
 const { query, withTransaction } = require('../config/database');
 
 const UserModel = {
-  // ──────────────────────────────────────────────────────────────────────────────
   // CREATE
-  // ──────────────────────────────────────────────────────────────────────────────
 
   async create({ email, passwordHash, firstName, lastName, phoneNumber, role = 'reporter', profilePictureUrl = null }) {
     const sql = `
@@ -35,9 +29,7 @@ const UserModel = {
     return rows[0];
   },
 
-  // ──────────────────────────────────────────────────────────────────────────────
   // READ
-  // ──────────────────────────────────────────────────────────────────────────────
 
   async findByEmail(email) {
     const { rows } = await query(
@@ -125,14 +117,9 @@ const UserModel = {
     };
   },
 
-  // ──────────────────────────────────────────────────────────────────────────────
   // UPDATE
-  // ──────────────────────────────────────────────────────────────────────────────
 
   async markEmailVerified(email) {
-    // Return enough fields for the verify-email controller to mint a complete
-    // access token. Forgetting `role` here makes the JWT role-less, which
-    // then trips every RBAC middleware downstream with FORBIDDEN.
     const { rows } = await query(
       `UPDATE users
        SET email_verified = true, updated_at = NOW()
@@ -234,9 +221,7 @@ const UserModel = {
     return rows[0] || null;
   },
 
-  // ──────────────────────────────────────────────────────────────────────────────
   // DELETE / GDPR
-  // ──────────────────────────────────────────────────────────────────────────────
 
   async anonymise(userId) {
     const placeholderEmail = `deleted_${Date.now()}_${userId.slice(0, 8)}@deleted.invalid`;

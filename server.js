@@ -1,7 +1,3 @@
-/**
- * server.js
- * Entry point for the Incident Hive API.
- */
 
 require('dotenv').config();
 
@@ -14,15 +10,15 @@ const compression = require('compression');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 
-// ── Infrastructure ─────────────────────────────────────────────────────────────
+// Infrastructure
 const { connectDB } = require('./config/database');
 const { connectRedis } = require('./config/redis');
 const logger = require('./utils/logger');
 
-// ── Swagger definition ─────────────────────────────────────────────────────────
+// Swagger definition
 const swaggerDefinition = require('./docs/swaggerDefinition');
 
-// ── Route files ────────────────────────────────────────────────────────────────
+// Route files
 const authRoutes = require('./routes/authRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const incidentRoutes = require('./routes/incidentRoutes');
@@ -32,7 +28,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const contentRoutes = require('./routes/contentRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
-// ── Global middleware ──────────────────────────────────────────────────────────
+// Global middleware
 const errorHandler = require('./middleware/errorHandler');
 const auditLog     = require('./middleware/auditLog');
 
@@ -41,13 +37,13 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const API_PREFIX = process.env.API_PREFIX || '/api/v1';
 
-// ── Per-request CSP nonce ──────────────────────────────────────────────────────
+// Per-request CSP nonce
 app.use((req, res, next) => {
   res.locals.cspNonce = crypto.randomBytes(16).toString('base64');
   next();
 });
 
-// ── Security headers ───────────────────────────────────────────────────────────
+// Security headers
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -62,11 +58,7 @@ app.use(
   })
 );
 
-// ── CORS ───────────────────────────────────────────────────────────────────────
-// In production, FRONTEND_URL pins origin to a single trusted host.
-// In development, requests from native iOS apps have no Origin header
-// (cors passes them through), and browser-based devtools may come from
-// a LAN IP — so accept a comma-separated allowlist.
+// CORS
 const corsAllowlist = (process.env.FRONTEND_URL || 'http://localhost:3001')
   .split(',')
   .map((s) => s.trim())
@@ -86,12 +78,12 @@ app.use(
   })
 );
 
-// ── Body parsing + compression ─────────────────────────────────────────────────
+// Body parsing + compression
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ── HTTP request logging ───────────────────────────────────────────────────────
+// HTTP request logging
 app.use(
   morgan('combined', {
     stream: { write: (message) => logger.http(message.trim()) },
@@ -99,7 +91,6 @@ app.use(
   })
 );
 
-// ── Swagger / OpenAPI docs (disabled in production) ──────────────────────────
 if (process.env.NODE_ENV !== 'production') {
   app.use(
     '/api-docs',
@@ -118,7 +109,7 @@ if (process.env.NODE_ENV !== 'production') {
   );
 }
 
-// ── Health check ───────────────────────────────────────────────────────────────
+// Health check
 const healthHandler = async (req, res) => {
   const { getPool } = require('./config/database');
   const { getRedis } = require('./config/redis');
@@ -155,22 +146,20 @@ const healthHandler = async (req, res) => {
 app.get('/health', healthHandler);
 app.get(`${API_PREFIX}/health`, healthHandler);
 
-// Simple root probe so you can hit http://<host>:<port>/ from a phone browser.
 app.get('/', (req, res) => {
   res.json({ status: 'ok', service: 'incident-hive-api', api: API_PREFIX });
 });
 
-// ── Static file serving ────────────────────────────────────────────────────────
+// Static file serving
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ── Audit logging (state-changing requests only) ──────────────────────────────
+// Audit logging (state-changing requests only)
 app.use(auditLog);
 
-// ── API routes with /api/v1 prefix ─────────────────────────────────────────────
+// API routes with /api/v1 prefix
 app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/profile`, profileRoutes);
 // bidRoutes must mount BEFORE incidentRoutes: both share /incidents, and
-// incidentRoutes applies a router-level requireReporterOnly that would
 // otherwise intercept expert-only bid endpoints (e.g. POST /:id/bids).
 app.use(`${API_PREFIX}/incidents`, bidRoutes);
 app.use(`${API_PREFIX}/incidents`, incidentRoutes);
@@ -179,7 +168,7 @@ app.use(`${API_PREFIX}/notifications`, notificationRoutes);
 app.use(API_PREFIX, contentRoutes);
 app.use(`${API_PREFIX}/admin`, adminRoutes);
 
-// ── 404 handler ────────────────────────────────────────────────────────────────
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -190,10 +179,10 @@ app.use((req, res) => {
   });
 });
 
-// ── Global error handler ───────────────────────────────────────────────────────
+// Global error handler
 app.use(errorHandler);
 
-// ── Server bootstrap ───────────────────────────────────────────────────────────
+// Server bootstrap
 async function startServer() {
   try {
     await connectDB();
@@ -202,11 +191,6 @@ async function startServer() {
     await connectRedis();
     logger.info('Redis connected');
 
-    // Bind to localhost by default: the iOS Simulator reaches us as
-    // "localhost", and the Android Emulator's "10.0.2.2" alias also
-    // resolves to the host's loopback, so neither needs LAN exposure.
-    // Override with HOST=0.0.0.0 in .env if you ever need to hit the
-    // dev server from another device on the same Wi-Fi.
     const HOST = process.env.HOST || 'localhost';
     app.listen(PORT, HOST, () => {
       logger.info(`Incident Hive API running on ${HOST}:${PORT}`);
@@ -220,7 +204,7 @@ async function startServer() {
   }
 }
 
-// ── Graceful shutdown ──────────────────────────────────────────────────────────
+// Graceful shutdown
 async function shutdown(signal) {
   logger.info(`${signal} received — shutting down gracefully...`);
 
@@ -242,7 +226,7 @@ async function shutdown(signal) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
-// ── Boot ───────────────────────────────────────────────────────────────────────
+// Boot
 startServer();
 
 module.exports = app;

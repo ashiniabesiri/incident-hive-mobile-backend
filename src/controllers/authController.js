@@ -1,10 +1,3 @@
-/**
- * controllers/authController.js
- * Handler functions for every /api/auth/* endpoint.
- *
- * Each handler is an async function. Errors bubble up to errorHandler.js
- * via the next(error) convention. Simple client errors use early returns.
- */
 
 const bcrypt = require('bcrypt');
 
@@ -23,7 +16,7 @@ const VERIFY_TTL       = 15 * 60;  // 15 min
 const MFA_TTL          = 15 * 60;  // 15 min
 const BIOMETRIC_TTL    = 30 * 24 * 60 * 60; // 30 days
 
-// ─── R001: Register ────────────────────────────────────────────────────────────
+// R001: Register
 /**
  * @swagger
  * /api/auth/register:
@@ -67,11 +60,9 @@ async function register(req, res, next) {
     // Persist user
     const user = await UserModel.create({ email, passwordHash, firstName, lastName, phoneNumber });
 
-    // Generate and cache 6-digit verification code in Redis
     const code = generateOtp();
     await set(`${VERIFY_PREFIX}${email}`, code, VERIFY_TTL);
 
-    // Send verification email (fire-and-forget; failure shouldn't block the response)
     sendVerificationEmail(email, code, firstName).catch((err) =>
       logger.error('Failed to send verification email:', err)
     );
@@ -92,7 +83,7 @@ async function register(req, res, next) {
   }
 }
 
-// ─── R002: Verify Email ────────────────────────────────────────────────────────
+// R002: Verify Email
 /**
  * @swagger
  * /api/auth/verify-email:
@@ -150,7 +141,7 @@ async function verifyEmail(req, res, next) {
   }
 }
 
-// ─── R003: Login ───────────────────────────────────────────────────────────────
+// R003: Login
 /**
  * @swagger
  * /api/auth/login:
@@ -201,7 +192,6 @@ async function login(req, res, next) {
       });
     }
 
-    // If MFA is enabled, issue a short-lived MFA challenge instead of full tokens
     if (user.mfa_enabled) {
       const mfaCode = generateOtp();
       await set(`${MFA_PREFIX}${email}`, mfaCode, MFA_TTL);
@@ -252,7 +242,7 @@ async function login(req, res, next) {
   }
 }
 
-// ─── R004: Refresh Token Rotation ─────────────────────────────────────────────
+// R004: Refresh Token Rotation
 /**
  * @swagger
  * /api/auth/refresh:
@@ -265,16 +255,13 @@ async function refreshToken(req, res, next) {
   try {
     const { refreshToken } = req.body;
 
-    // Validate and extract userId from Redis-backed token
     const { userId } = await TokenService.validateRefreshToken(refreshToken);
 
-    // Fetch current user to get email and role for new token payload
     const user = await UserModel.findById(userId);
     if (!user) {
       return res.status(401).json({ success: false, message: 'User not found.' });
     }
 
-    // Rotate: delete old → issue new pair
     const { accessToken: newAccess, refreshToken: newRefresh } =
       await TokenService.rotateRefreshToken(userId, user.email, user.role);
 
@@ -294,7 +281,7 @@ async function refreshToken(req, res, next) {
   }
 }
 
-// ─── Logout ────────────────────────────────────────────────────────────────────
+// Logout
 /**
  * @swagger
  * /api/auth/logout:
@@ -311,7 +298,7 @@ async function logout(req, res, next) {
   }
 }
 
-// ─── MFA Setup ─────────────────────────────────────────────────────────────────
+// MFA Setup
 /**
  * @swagger
  * /api/auth/mfa/setup:
@@ -323,7 +310,6 @@ async function mfaSetup(req, res, next) {
   try {
     const { userId, email } = req.user;
 
-    // Generate and send a verification code to confirm the user controls the email
     const code = generateOtp();
     await set(`${MFA_PREFIX}${email}`, code, MFA_TTL);
 
@@ -341,7 +327,7 @@ async function mfaSetup(req, res, next) {
   }
 }
 
-// ─── MFA Verify (finalise setup) ──────────────────────────────────────────────
+// MFA Verify (finalise setup)
 /**
  * @swagger
  * /api/auth/mfa/verify:
@@ -362,7 +348,6 @@ async function mfaVerify(req, res, next) {
       });
     }
 
-    // Store a reference secret (the email itself, encrypted, serves as the "secret")
     const mfaSecret = encrypt(email);
     await UserModel.enableMfa(userId, mfaSecret);
     await del(`${MFA_PREFIX}${email}`);
@@ -376,7 +361,7 @@ async function mfaVerify(req, res, next) {
   }
 }
 
-// ─── MFA Login (second factor) ─────────────────────────────────────────────────
+// MFA Login (second factor)
 /**
  * @swagger
  * /api/auth/mfa/login:
@@ -435,7 +420,7 @@ async function mfaLogin(req, res, next) {
   }
 }
 
-// ─── Change Password ───────────────────────────────────────────────────────────
+// Change Password
 /**
  * @swagger
  * /api/auth/change-password:
@@ -464,7 +449,6 @@ async function changePassword(req, res, next) {
     const newPasswordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
     await UserModel.updatePassword(userId, newPasswordHash);
 
-    // Revoke all existing sessions to force re-login
     await TokenService.revokeAllTokens(userId);
 
     res.status(200).json({
@@ -476,7 +460,7 @@ async function changePassword(req, res, next) {
   }
 }
 
-// ─── Account Deletion (GDPR) ───────────────────────────────────────────────────
+// Account Deletion (GDPR)
 /**
  * @swagger
  * /api/auth/account:
@@ -488,7 +472,6 @@ async function deleteAccount(req, res, next) {
   try {
     const { userId, email } = req.user;
 
-    // Send notification before anonymising (email becomes unreachable after)
     sendAccountDeletionEmail(email).catch((err) =>
       logger.error('Failed to send deletion email:', err)
     );
@@ -510,7 +493,7 @@ async function deleteAccount(req, res, next) {
   }
 }
 
-// ─── Biometric Register ────────────────────────────────────────────────────────
+// Biometric Register
 /**
  * @swagger
  * /api/auth/biometric/register:
@@ -523,7 +506,6 @@ async function biometricRegister(req, res, next) {
     const { userId } = req.user;
     const { biometricKey } = req.body;
 
-    // Encrypt the biometric key before storing in Redis
     const encryptedKey = encrypt(biometricKey);
     await set(`${BIOMETRIC_PREFIX}${userId}`, encryptedKey, BIOMETRIC_TTL);
 
@@ -536,7 +518,7 @@ async function biometricRegister(req, res, next) {
   }
 }
 
-// ─── Biometric Login ───────────────────────────────────────────────────────────
+// Biometric Login
 /**
  * @swagger
  * /api/auth/biometric/login:
@@ -549,7 +531,6 @@ async function biometricLogin(req, res, next) {
   try {
     const { userId, biometricKey } = req.body;
 
-    // Retrieve the stored (encrypted) biometric key from Redis
     const storedEncrypted = await get(`${BIOMETRIC_PREFIX}${userId}`);
     if (!storedEncrypted) {
       return res.status(401).json({
@@ -610,7 +591,7 @@ async function biometricLogin(req, res, next) {
   }
 }
 
-// ─── Get Profile ───────────────────────────────────────────────────────────────
+// Get Profile
 /**
  * @swagger
  * /api/auth/profile:

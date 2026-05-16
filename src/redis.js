@@ -1,24 +1,9 @@
-/**
- * config/redis.js
- * Redis client singleton using ioredis.
- *
- * Key naming conventions used across the app:
- *   refresh:{userId}        → refresh token string,   TTL = 7 days
- *   session:{userId}        → "active",               TTL = 30 min (rolling)
- *   verify:{email}          → 6-digit code string,    TTL = 15 min
- *   mfa:{email}             → 6-digit code string,    TTL = 15 min
- *   biometric:{userId}      → biometric public key,   TTL = 30 days
- */
 
 const Redis = require('ioredis');
 const logger = require('../utils/logger');
 
 let redisClient;
 
-/**
- * Creates and connects the Redis client.
- * Resolves when the client emits 'ready'.
- */
 async function connectRedis() {
   return new Promise((resolve, reject) => {
     redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
@@ -47,16 +32,11 @@ async function connectRedis() {
       logger.warn('Redis reconnecting...');
     });
 
-    // Reject the promise only on the initial connection attempt
     redisClient.once('error', reject);
     setTimeout(() => redisClient.removeListener('error', reject), 5000);
   });
 }
 
-/**
- * Returns the active Redis client.
- * Throws if connectRedis() has not been called yet.
- */
 function getRedis() {
   if (!redisClient) {
     throw new Error('Redis not initialised. Call connectRedis() first.');
@@ -64,9 +44,8 @@ function getRedis() {
   return redisClient;
 }
 
-// ─── Convenience Helpers ──────────────────────────────────────────────────────
+// Convenience Helpers
 
-/** Store a value with an optional TTL (seconds). */
 async function set(key, value, ttlSeconds) {
   const client = getRedis();
   if (ttlSeconds) {
@@ -75,22 +54,18 @@ async function set(key, value, ttlSeconds) {
   return client.set(key, value);
 }
 
-/** Retrieve a value; returns null if the key doesn't exist. */
 async function get(key) {
   return getRedis().get(key);
 }
 
-/** Delete one or more keys. */
 async function del(...keys) {
   return getRedis().del(...keys);
 }
 
-/** Reset the TTL on an existing key (slide the expiry window). */
 async function expire(key, ttlSeconds) {
   return getRedis().expire(key, ttlSeconds);
 }
 
-/** Check whether a key exists (returns 1 or 0). */
 async function exists(key) {
   return getRedis().exists(key);
 }

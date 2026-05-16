@@ -1,10 +1,3 @@
-/**
- * routes/authRoutes.js
- * All /api/auth/* routes with their middleware chains.
- *
- * Middleware order per route:
- *   [rate limiter] → [input validation] → [auth/rbac if protected] → [controller]
- */
 
 const { Router } = require('express');
 
@@ -32,10 +25,9 @@ const {
 
 const router = Router();
 
-// Apply the general auth limiter to the entire router
 router.use(authLimiter);
 
-// ─── Public routes ─────────────────────────────────────────────────────────────
+// Public routes
 
 /**
  * @swagger
@@ -93,7 +85,7 @@ router.post(
   controller.biometricLogin
 );
 
-// ─── Protected routes (JWT required) ──────────────────────────────────────────
+// Protected routes (JWT required)
 
 // Logout
 router.post(

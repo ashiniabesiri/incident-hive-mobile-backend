@@ -1,21 +1,3 @@
-/**
- * scripts/create-expert-user.js
- *
- * One-off helper to seed an expert account directly into the database.
- * Skips OTP/email-verification: the new row is created with
- * email_verified = true and account_status = 'active' so the app can
- * sign in immediately.
- *
- * Usage:
- *   node scripts/create-expert-user.js \
- *     --email dilanka@gmail.com \
- *     --password 'Dilanka@123' \
- *     [--first-name Dilanka] [--last-name Liyanage]
- *
- * Re-running with the same email updates the password / role rather
- * than failing on the unique-email constraint, so it's safe to use as
- * a "reset this account" tool too.
- */
 
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
@@ -52,7 +34,6 @@ async function main() {
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
-  // Upsert the user row.
   const userSql = `
     INSERT INTO users
       (email, password_hash, first_name, last_name, role,
@@ -72,9 +53,6 @@ async function main() {
   const { rows } = await query(userSql, [email, passwordHash, firstName, lastName]);
   const user = rows[0];
 
-  // Random expertise / credentials / bio so the seeded expert has a
-  // realistic-looking public profile. Re-running this script reshuffles
-  // them, which is handy for demos.
   const ALL_AREAS = [
     'Phishing',
     'Ransomware',
@@ -126,7 +104,7 @@ async function main() {
     user_id: user.user_id,
     email: user.email,
     role: user.role,
-    password: password, // echoed once so you can copy it
+    password: password,
     expertise_areas: expertiseAreas,
     credentials,
     bio,

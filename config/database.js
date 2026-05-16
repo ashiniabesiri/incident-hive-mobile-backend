@@ -1,7 +1,3 @@
-/**
- * config/database.js
- * PostgreSQL connection pool using the pg library.
- */
 
 require('dotenv').config();
 
@@ -10,9 +6,6 @@ const path = require('path');
 const { Pool, types } = require('pg');
 const logger = require('../utils/logger');
 
-// Parse NUMERIC/DECIMAL (OID 1700) as JS Number so JSON responses serialise
-// budget and other money columns as numbers, not strings. Precision loss is
-// acceptable here — budgets are bounded by the app's max value.
 types.setTypeParser(1700, (val) => (val === null ? null : parseFloat(val)));
 
 let pool;

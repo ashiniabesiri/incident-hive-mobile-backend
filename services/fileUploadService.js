@@ -1,44 +1,20 @@
-/**
- * services/fileUploadService.js
- * Persists uploaded file buffers to either local disk or AWS S3.
- *
- * Storage backend is selected via the FILE_STORAGE environment variable:
- *   FILE_STORAGE=local  (default) — saves to uploads/ directory in the project root
- *   FILE_STORAGE=s3               — streams to an S3-compatible bucket
- *
- * For S3, install the optional AWS packages first:
- *   npm install @aws-sdk/client-s3 @aws-sdk/lib-storage
- *
- * Required env vars for S3:
- *   AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, S3_BUCKET_NAME
- *
- * Every upload function returns the same shape so the controller is storage-agnostic:
- *   {
- *     fileName:  string,   original filename (sanitised)
- *     fileUrl:   string,   publicly accessible URL
- *     fileSize:  number,   bytes
- *     mimeType:  string,
- *   }
- */
 
 const fs   = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../utils/logger');
 
-// ─── Storage strategy ──────────────────────────────────────────────────────────
+// Storage strategy
 const USE_S3 = process.env.FILE_STORAGE === 's3';
 
-// ─── Local storage setup ───────────────────────────────────────────────────────
+// Local storage setup
 // Files are saved to <project_root>/uploads/incidents/
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'incidents');
 
-// Ensure the uploads directory exists at startup (synchronous, runs once)
 if (!USE_S3) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-// ─── S3 client (lazy-loaded so local mode never requires the AWS SDK) ─────────
 let s3Client;
 let S3_BUCKET;
 
@@ -67,61 +43,34 @@ function getS3Client() {
     },
   });
 
-  // Attach Upload constructor so callers can use it
   s3Client._Upload = Upload;
 
   return s3Client;
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
+// Helpers
 
-/**
- * sanitiseFilename
- * Strips path traversal characters and replaces spaces so filenames are safe
- * to use in URLs and on disk.
- *
- * @param {string} originalName  e.g. "My Report (1).pdf"
- * @returns {string}             e.g. "My_Report_1_.pdf"
- */
 function sanitiseFilename(originalName) {
   return path.basename(originalName)
     .replace(/[^a-zA-Z0-9._-]/g, '_') // replace unsafe chars
     .replace(/_{2,}/g, '_');           // collapse consecutive underscores
 }
 
-/**
- * buildStorageKey
- * Generates a unique storage path for a file.
- * Format: incidents/{uuid}_{sanitisedName}
- *
- * @param {string} originalName
- * @returns {string}
- */
 function buildStorageKey(originalName) {
   const safe = sanitiseFilename(originalName);
   return `incidents/${uuidv4()}_${safe}`;
 }
 
-// ─── Local disk upload ─────────────────────────────────────────────────────────
+// Local disk upload
 
-/**
- * uploadToLocal
- * Writes a multer buffer to the local uploads/incidents/ directory.
- *
- * @param {Object} file  Multer file object { originalname, buffer, size, mimetype }
- * @returns {Object}     { fileName, fileUrl, fileSize, mimeType }
- */
 async function uploadToLocal(file) {
   const storageKey = buildStorageKey(file.originalname);
   const filePath   = path.join(process.cwd(), 'uploads', storageKey);
 
-  // Ensure the subdirectory exists (in case storageKey contains a subpath)
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
-  // Write the buffer from memory to disk
   await fs.promises.writeFile(filePath, file.buffer);
 
-  // Build the public URL — served by Express static middleware at /uploads
   const baseUrl  = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
   const fileUrl  = `${baseUrl}/uploads/${storageKey}`;
 
@@ -135,16 +84,8 @@ async function uploadToLocal(file) {
   };
 }
 
-// ─── S3 upload ─────────────────────────────────────────────────────────────────
+// S3 upload
 
-/**
- * uploadToS3
- * Streams a multer buffer to an S3-compatible bucket using @aws-sdk/lib-storage.
- * lib-storage handles multipart uploads automatically for large files.
- *
- * @param {Object} file  Multer file object { originalname, buffer, size, mimetype }
- * @returns {Object}     { fileName, fileUrl, fileSize, mimeType }
- */
 async function uploadToS3(file) {
   const client     = getS3Client();
   const Upload     = client._Upload;
@@ -157,7 +98,6 @@ async function uploadToS3(file) {
       Key:         storageKey,
       Body:        file.buffer,
       ContentType: file.mimetype,
-      // Set public-read ACL if your bucket doesn't use CloudFront or signed URLs
       // ACL: 'public-read',
     },
   });
@@ -176,21 +116,13 @@ async function uploadToS3(file) {
   };
 }
 
-// ─── Delete helpers ────────────────────────────────────────────────────────────
+// Delete helpers
 
-/**
- * deleteFile
- * Delete a single file from whichever storage backend is active.
- * Pass the fileUrl returned by uploadFile — the path is extracted automatically.
- *
- * @param {string} fileUrl  URL originally returned by uploadFile
- */
 async function deleteFile(fileUrl) {
   try {
     if (USE_S3) {
       const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
       const client = getS3Client();
-      // Extract the S3 key from the URL
       const key = new URL(fileUrl).pathname.replace(/^\//, '');
       await client.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: key }));
       logger.info(`S3 object deleted: ${key}`);
@@ -208,36 +140,16 @@ async function deleteFile(fileUrl) {
   }
 }
 
-/**
- * deleteFiles
- * Delete multiple files. Fires all deletes concurrently.
- *
- * @param {string[]} fileUrls  Array of URLs returned by uploadFile
- */
 async function deleteFiles(fileUrls = []) {
   await Promise.allSettled(fileUrls.map(deleteFile));
 }
 
-// ─── Primary export ────────────────────────────────────────────────────────────
+// Primary export
 
-/**
- * uploadFile
- * Dispatch to local or S3 based on FILE_STORAGE env var.
- *
- * @param {Object} file  Multer file object from req.files
- * @returns {{ fileName, fileUrl, fileSize, mimeType }}
- */
 async function uploadFile(file) {
   return USE_S3 ? uploadToS3(file) : uploadToLocal(file);
 }
 
-/**
- * uploadFiles
- * Upload multiple files concurrently.
- *
- * @param {Object[]} files  Array of Multer file objects from req.files
- * @returns {Array<{ fileName, fileUrl, fileSize, mimeType }>}
- */
 async function uploadFiles(files = []) {
   return Promise.all(files.map(uploadFile));
 }

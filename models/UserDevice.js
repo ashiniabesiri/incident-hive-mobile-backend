@@ -1,7 +1,3 @@
-/**
- * models/UserDevice.js
- * Database queries for user_devices table.
- */
 
 const { query } = require('../config/database');
 

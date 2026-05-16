@@ -1,7 +1,3 @@
-/**
- * utils/logger.js
- * Winston logger — structured JSON in production, colourised in development.
- */
 
 const { createLogger, format, transports } = require('winston');
 
@@ -34,7 +30,6 @@ const logger = createLogger({
   ],
 });
 
-// Add a custom 'http' level for morgan integration
 logger.http = (message) => logger.log('http', message);
 
 module.exports = logger;

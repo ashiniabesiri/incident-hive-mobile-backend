@@ -18,7 +18,7 @@ const ACCESS_TTL  = parseInt(process.env.ACCESS_TOKEN_TTL_SECONDS  || '900',    
 const REFRESH_TTL = parseInt(process.env.REFRESH_TOKEN_TTL_SECONDS || '604800', 10);
 const SESSION_TTL = parseInt(process.env.SESSION_TTL_SECONDS       || '1800',   10);
 
-// ─── RSA Key Loading ─────────────────────────────────────────────────────────
+// RSA Key Loading
 function loadKey(envPath, envInline) {
   if (envInline) return envInline.replace(/\\n/g, '\n');
   if (envPath) {

@@ -1,7 +1,3 @@
-/**
- * controllers/expertController.js
- * Handler functions for the expert feed and profile management endpoints.
- */
 
 const Joi = require('joi');
 
@@ -10,9 +6,7 @@ const UserModel = require('../models/User');
 const BidModel = require('../models/Bid');
 const { query } = require('../config/database');
 
-// Loose UUID v1–v5 check — enough to reject obvious garbage before it reaches
 // Postgres, which would otherwise throw `22P02 invalid_text_representation`
-// and surface as a generic 500.
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const {
@@ -33,7 +27,7 @@ const availabilitySchema = Joi.object({
     }),
 });
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
+// Helpers
 
 function sendError(res, status, code, message, details = null) {
   return res.status(status).json({
@@ -71,7 +65,7 @@ async function getExpertAreas(expertId) {
   return profile?.expertise_areas || [];
 }
 
-// ─── GET /api/v1/feed/incidents ────────────────────────────────────────────────
+// GET /api/v1/feed/incidents
 
 async function getFeedIncidents(req, res, next) {
   try {
@@ -90,8 +84,6 @@ async function getFeedIncidents(req, res, next) {
     ];
 
     // Separate params are safer:
-    // filterParams = used by WHERE and count query
-    // dataParams = used by data query including ranking, limit, offset
     const filterParams = [];
 
     if (incident_type) {
@@ -109,29 +101,17 @@ async function getFeedIncidents(req, res, next) {
     let expertiseAreas = [];
     let relevanceExpr = '0';
 
-    // "For You" / AI-filtered mode: load the expert's expertise areas, restrict
-    // the result set to incidents that touch those areas, AND rank by how well
-    // they match. If the expert has no expertise areas saved we return an
-    // empty set so the UI can prompt them to fill in their profile.
-    //
     // TODO: when a real recommendation model is available, replace the
-    // ANY+ILIKE relevance heuristic with a service-layer call (e.g. an LLM
-    // re-ranker or an embedding-similarity scorer) and keep this controller
-    // a thin pass-through.
     if (aiRanked) {
       expertiseAreas = await getExpertAreas(expertId);
 
       if (expertiseAreas.length === 0) {
-        // No expertise saved — guarantee an empty list without hitting the
-        // data shape changes. `FALSE` short-circuits the WHERE.
         conditions.push('FALSE');
       } else {
         filterParams.push(expertiseAreas);
         const areasIdx = filterParams.length;
         const areasParam = `$${areasIdx}`;
 
-        // Filter: an incident is "for this expert" if its type is one of the
-        // expert's areas, or one of those areas appears in title/description.
         conditions.push(`(
           i.incident_type = ANY(${areasParam}::text[])
           OR EXISTS (
@@ -141,8 +121,6 @@ async function getFeedIncidents(req, res, next) {
           )
         )`);
 
-        // Rank: type match = 2 points, plus up to 3 keyword hits in
-        // title/description (so deeper matches surface higher).
         relevanceExpr = `
           (CASE WHEN i.incident_type = ANY(${areasParam}::text[]) THEN 2 ELSE 0 END)
           + LEAST(
@@ -160,13 +138,8 @@ async function getFeedIncidents(req, res, next) {
 
     const whereClause = conditions.join(' AND ');
 
-    // filterParams is now the authoritative bound-param list for both the
-    // count query and the data query (data query appends ranking-only
-    // pagination params).
     const dataParams = [...filterParams];
 
-    // expert_id is used both by the has_bid subquery and the ORDER BY clause
-    // (so incidents the expert has already bid on sink to the bottom).
     dataParams.push(expertId);
     const expertParam = `$${dataParams.length}`;
 
@@ -176,8 +149,6 @@ async function getFeedIncidents(req, res, next) {
         AND b2.expert_id = ${expertParam}
     )`;
 
-    // Incidents the expert hasn't bid on come first; within each group,
-    // honour the existing sort (relevance or recency).
     const innerOrder = aiRanked
       ? 'relevance_score DESC, i.created_at DESC'
       : 'i.created_at DESC';
@@ -257,17 +228,14 @@ async function getFeedIncidents(req, res, next) {
   }
 }
 
-// ─── GET /api/v1/feed/incidents/:incident_id ──────────────────────────────────
+// GET /api/v1/feed/incidents/:incident_id
 
 async function getFeedIncidentDetail(req, res, next) {
   try {
     const { incident_id } = req.params;
     const expertId = req.user.userId;
 
-    // Allow the expert to view any incident they've bid on, even after it
     // moves to In Progress / Completed — otherwise the active-engagement
-    // screen breaks once the reporter accepts the bid. Open incidents
-    // remain visible to every expert regardless of bid history.
     const { rows } = await query(
       `SELECT
          i.incident_id,
@@ -329,7 +297,7 @@ async function getFeedIncidentDetail(req, res, next) {
   }
 }
 
-// ─── GET /api/v1/experts/:expert_id/profile ───────────────────────────────────
+// GET /api/v1/experts/:expert_id/profile
 
 async function getExpertProfile(req, res, next) {
   try {
@@ -346,12 +314,7 @@ async function getExpertProfile(req, res, next) {
 
     let profileRow = await ExpertProfileModel.findWithUser(expert_id);
 
-    // findWithUser is an INNER JOIN on expert_profiles. An expert who has
-    // placed bids but never filled in their detailed profile won't have a
-    // row in expert_profiles, so the JOIN returns nothing and the user
     // would otherwise see a 404 from "View Profile" on every fresh expert.
-    // Fall back to the bare user record so the screen can always render
-    // *some* profile — the role-specific fields just come back empty.
     if (!profileRow) {
       const user = await UserModel.findById(expert_id);
       if (user && user.role === 'expert' && user.account_status !== 'deleted') {
@@ -391,7 +354,7 @@ async function getExpertProfile(req, res, next) {
   }
 }
 
-// ─── PATCH /api/v1/profile/availability ───────────────────────────────────────
+// PATCH /api/v1/profile/availability
 
 async function updateAvailability(req, res, next) {
   try {
@@ -430,7 +393,7 @@ async function updateAvailability(req, res, next) {
   }
 }
 
-// ─── GET /api/v1/experts/me/bids ──────────────────────────────────────────────
+// GET /api/v1/experts/me/bids
 
 async function getMyBidHistory(req, res, next) {
   try {

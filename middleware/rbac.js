@@ -38,7 +38,6 @@ function requireRole(allowedRoles) {
 }
 
 // Existing project behavior:
-// requireReporter allows all authenticated app roles.
 // Do not change this now because other routes depend on it.
 const requireReporter = requireRole(['reporter', 'expert', 'admin']);
 const requireReporterOnly = requireRole(['reporter', 'admin']);

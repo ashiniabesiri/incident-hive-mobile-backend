@@ -88,7 +88,8 @@
       "Bash(grep -n \"google\\\\|Google\\\\|signIn\\\\|verifyEmail\\\\|verify\" /Users/dilankaliyanage/Desktop/FYP/Android/incident-hive-android/app/src/main/java/com/group9/incidenthiveandroid/ui/view/auth/LoginScreen.kt 2>/dev/null | head -20; echo \"---auth API---\"; grep -rn \"auth/google\\\\|auth/login\\\\|googleLogin\\\\|GoogleLogin\" /Users/dilankaliyanage/Desktop/FYP/Android/incident-hive-android/app/src/main/java --include=\"*.kt\" 2>/dev/null | head -10; echo \"---libs.versions---\"; cat /Users/dilankaliyanage/Desktop/FYP/Android/incident-hive-android/gradle/libs.versions.toml 2>/dev/null | head -80)",
       "Read(//Users/dilankaliyanage/Desktop/FYP/Android/incident-hive-android/**)",
       "Bash(./gradlew :app:compileDebugKotlin --quiet)",
-      "Bash(./gradlew :app:assembleDebug --quiet)"
+      "Bash(./gradlew :app:assembleDebug --quiet)",
+      "Bash(node /tmp/cleanup_comments.js)"
     ]
   }
 }

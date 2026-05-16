@@ -2,7 +2,6 @@ const nodemailer = require('nodemailer');
 const https      = require('https');
 const logger     = require('../utils/logger');
 
-// Lazy singleton — created on first send
 let _transporter;
 function getTransporter() {
   if (!_transporter) {

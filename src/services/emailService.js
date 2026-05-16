@@ -1,14 +1,9 @@
-/**
- * services/emailService.js
- * Sends transactional emails via Nodemailer (SMTP) or the Brevo (Sendinblue) REST API.
- * Toggle between providers using the USE_BREVO environment variable.
- */
 
 const nodemailer = require('nodemailer');
 const https = require('https');
 const logger = require('../utils/logger');
 
-// ─── Nodemailer Transporter ───────────────────────────────────────────────────
+// Nodemailer Transporter
 // Lazily created so tests don't require real credentials.
 let _transporter;
 
@@ -17,7 +12,7 @@ function getTransporter() {
     _transporter = nodemailer.createTransport({
       host:   process.env.EMAIL_HOST  || 'smtp.gmail.com',
       port:   parseInt(process.env.EMAIL_PORT || '587', 10),
-      secure: process.env.EMAIL_PORT  === '465',  // true for port 465, false for 587 (STARTTLS)
+      secure: process.env.EMAIL_PORT  === '465',
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
@@ -27,7 +22,7 @@ function getTransporter() {
   return _transporter;
 }
 
-// ─── Brevo REST helper ────────────────────────────────────────────────────────
+// Brevo REST helper
 function sendViaBrevo(to, subject, html) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
@@ -67,7 +62,7 @@ function sendViaBrevo(to, subject, html) {
   });
 }
 
-// ─── Primary send function ────────────────────────────────────────────────────
+// Primary send function
 async function sendEmail({ to, subject, html, text }) {
   const useBrevo = process.env.USE_BREVO === 'true';
 
@@ -90,11 +85,8 @@ async function sendEmail({ to, subject, html, text }) {
   }
 }
 
-// ─── Email Templates ──────────────────────────────────────────────────────────
+// Email Templates
 
-/**
- * Branded wrapper for all outgoing emails.
- */
 function baseTemplate(content) {
   return `
     <!DOCTYPE html>
@@ -139,11 +131,8 @@ function baseTemplate(content) {
   `;
 }
 
-// ─── Exported Email Actions ───────────────────────────────────────────────────
+// Exported Email Actions
 
-/**
- * Send the 6-digit email verification code after registration.
- */
 async function sendVerificationEmail(email, code, firstName) {
   const html = baseTemplate(`
     <p>Hello <strong>${firstName}</strong>,</p>
@@ -166,9 +155,6 @@ async function sendVerificationEmail(email, code, firstName) {
   });
 }
 
-/**
- * Send a 6-digit MFA challenge code.
- */
 async function sendMfaCode(email, code, firstName) {
   const html = baseTemplate(`
     <p>Hello <strong>${firstName}</strong>,</p>
@@ -191,9 +177,6 @@ async function sendMfaCode(email, code, firstName) {
   });
 }
 
-/**
- * Notify user that their account has been scheduled for deletion.
- */
 async function sendAccountDeletionEmail(email) {
   const html = baseTemplate(`
     <p>Your Incident Hive account has been deleted as requested.</p>

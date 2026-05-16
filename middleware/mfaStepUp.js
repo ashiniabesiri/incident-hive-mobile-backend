@@ -1,7 +1,3 @@
-/**
- * middleware/mfaStepUp.js
- * MFA Step-Up Authentication guard.
- */
 
 function sendError(res, status, code, message) {
   return res.status(status).json({

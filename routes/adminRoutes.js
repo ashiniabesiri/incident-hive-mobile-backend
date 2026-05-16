@@ -9,46 +9,18 @@ const router = Router();
 router.use(requireAuth);
 router.use(requireAdmin);
 
-/**
- * POST /api/v1/admin/experts
- * Create a new expert account with profile.
- */
 router.post('/experts', controller.createExpert);
 
-/**
- * POST /api/v1/admin/sessions/terminate
- * Terminate all sessions for a specific user.
- */
 router.post('/sessions/terminate', controller.terminateSession);
 
-/**
- * PATCH /api/v1/admin/users/:user_id/status
- * Suspend or reactivate a user account.
- */
 router.patch('/users/:user_id/status', controller.updateUserStatus);
 
-/**
- * GET /api/v1/admin/users
- * List all users with optional filters.
- */
 router.get('/users', controller.listUsers);
 
-/**
- * GET /api/v1/admin/users/:user_id
- * Get detailed user info (includes expert profile if applicable).
- */
 router.get('/users/:user_id', controller.getUser);
 
-/**
- * GET /api/v1/admin/dashboard/stats
- * Platform-wide statistics for the admin dashboard.
- */
 router.get('/dashboard/stats', controller.getDashboardStats);
 
-/**
- * GET /api/v1/admin/audit-logs
- * Query audit logs with optional filters.
- */
 router.get('/audit-logs', controller.getAuditLogs);
 
 module.exports = router;

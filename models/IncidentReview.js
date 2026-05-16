@@ -1,18 +1,6 @@
 const { query } = require('../config/database');
 
-/**
- * IncidentReviewModel
- *
- * Per-engagement reviews (rating + optional comment) left by a reporter for
- * the expert who completed their incident. Schema lives in schema.sql §9b.
- *
- * One review per incident is enforced by `incident_id` being the primary key.
- */
 const IncidentReviewModel = {
-  /**
-   * Insert a new review. Throws on PK violation (caller should detect this
-   * via `findByIncidentId` first and surface DUPLICATE_REVIEW).
-   */
   async create({ incidentId, reporterId, expertId, rating, comment }) {
     const { rows } = await query(
       `INSERT INTO incident_reviews

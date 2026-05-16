@@ -1,18 +1,9 @@
-/**
- * config/database.js
- * PostgreSQL connection pool using the 'pg' library.
- * Uses a singleton pattern so the pool is shared across the app.
- */
 
 const { Pool } = require('pg');
 const logger = require('../utils/logger');
 
 let pool;
 
-/**
- * Initialise the PostgreSQL connection pool and verify connectivity.
- * Called once at server startup.
- */
 async function connectDB() {
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -20,7 +11,7 @@ async function connectDB() {
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000,
     ssl: process.env.NODE_ENV === 'production'
-      ? { rejectUnauthorized: false }  // Required for most hosted Postgres (Render, Railway, etc.)
+      ? { rejectUnauthorized: false }
       : false,
   });
 
@@ -37,10 +28,6 @@ async function connectDB() {
   return pool;
 }
 
-/**
- * Returns the active pool instance.
- * Throws if connectDB() has not been called yet.
- */
 function getPool() {
   if (!pool) {
     throw new Error('Database not initialised. Call connectDB() first.');
@@ -48,11 +35,6 @@ function getPool() {
   return pool;
 }
 
-/**
- * Convenience wrapper: runs a query against the pool.
- * @param {string} text  - SQL statement
- * @param {Array}  params - Parameterised values
- */
 async function query(text, params) {
   const start = Date.now();
   try {
@@ -66,16 +48,6 @@ async function query(text, params) {
   }
 }
 
-/**
- * Convenience helper: checks out a client, runs a callback inside a transaction,
- * then commits or rolls back automatically.
- *
- * Usage:
- *   await withTransaction(async (client) => {
- *     await client.query('INSERT ...');
- *     await client.query('UPDATE ...');
- *   });
- */
 async function withTransaction(callback) {
   const client = await getPool().connect();
   try {
@@ -91,8 +63,7 @@ async function withTransaction(callback) {
   }
 }
 
-// ─── DDL: Create Tables ────────────────────────────────────────────────────────
-// Run this once against a fresh database, or use a migration tool in production.
+// DDL: Create Tables
 const CREATE_TABLES_SQL = `
   CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
@@ -118,10 +89,6 @@ const CREATE_TABLES_SQL = `
   CREATE INDEX IF NOT EXISTS idx_users_role  ON users(role);
 `;
 
-/**
- * Run CREATE TABLE statements against the connected database.
- * Safe to call multiple times thanks to IF NOT EXISTS guards.
- */
 async function runMigrations() {
   await query(CREATE_TABLES_SQL);
   logger.info('✅ Database migrations applied');

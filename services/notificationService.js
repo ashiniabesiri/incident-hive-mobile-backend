@@ -43,7 +43,6 @@ async function safeBulk(userIds, payload) {
   }
 }
 
-// Reporter notified when expert places a bid
 async function notifyNewBid(reporterId, { incidentId, incidentTitle, expertName, proposedFee }) {
   return safeCreate({
     userId: reporterId, type: 'NEW_BID', title: 'New Bid Received',
@@ -52,9 +51,6 @@ async function notifyNewBid(reporterId, { incidentId, incidentTitle, expertName,
   });
 }
 
-// Expert notified when reporter accepts their bid.
-// Reporter contact (email + phone) is included so the expert can reach out
-// directly — the engagement is now active and PII is unlocked under N002.
 async function notifyBidAccepted(
   expertId,
   { incidentId, incidentTitle, reporterName, reporterEmail, reporterPhone }
@@ -75,7 +71,6 @@ async function notifyBidAccepted(
   });
 }
 
-// Expert notified when their bid is declined (manually or auto)
 async function notifyBidDeclined(expertId, { incidentId, incidentTitle, wasAutoDeclined = false }) {
   return safeCreate({
     userId: expertId, type: 'BID_DECLINED', title: 'Bid Not Selected',
@@ -86,7 +81,6 @@ async function notifyBidDeclined(expertId, { incidentId, incidentTitle, wasAutoD
   });
 }
 
-// Bulk decline — fired when one bid is accepted and all others are auto-declined
 async function notifyMultipleExpertsDeclined(expertIds, { incidentId, incidentTitle }) {
   if (!expertIds?.length) return [];
   return safeBulk(expertIds, {
@@ -96,7 +90,6 @@ async function notifyMultipleExpertsDeclined(expertIds, { incidentId, incidentTi
   });
 }
 
-// Reporter notified when expert marks engagement complete
 async function notifyIncidentCompleted(reporterId, { incidentId, incidentTitle, expertName }) {
   return safeCreate({
     userId: reporterId, type: 'INCIDENT_UPDATE', title: 'Engagement Completed',
@@ -105,7 +98,6 @@ async function notifyIncidentCompleted(reporterId, { incidentId, incidentTitle, 
   });
 }
 
-// Generic — send to one user or many
 async function notifyIncidentUpdate(userIds, { incidentId, title, body }) {
   const ids = Array.isArray(userIds) ? userIds : [userIds];
   if (ids.length === 1) {

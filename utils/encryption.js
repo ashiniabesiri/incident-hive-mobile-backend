@@ -21,7 +21,6 @@ function encrypt(plaintext) {
   return [iv.toString('hex'), cipher.getAuthTag().toString('hex'), encrypted.toString('hex')].join(':');
 }
 
-// Throws if tampered — GCM auth tag is always verified
 function decrypt(encryptedValue) {
   const parts = encryptedValue.split(':');
   if (parts.length !== 3) throw new Error('Invalid encrypted value format.');
@@ -34,7 +33,6 @@ function decrypt(encryptedValue) {
   return Buffer.concat([decipher.update(Buffer.from(dataHex, 'hex')), decipher.final()]).toString('utf8');
 }
 
-// Cryptographically secure 6-digit OTP (no modulo bias)
 function generateOtp() {
   return crypto.randomInt(100_000, 999_999).toString();
 }

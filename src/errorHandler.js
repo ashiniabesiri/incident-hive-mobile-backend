@@ -1,8 +1,3 @@
-/**
- * middleware/errorHandler.js
- * Global error-handling middleware.
- * Must be registered LAST in the Express middleware chain (app.use(errorHandler)).
- */
 
 const logger = require('../utils/logger');
 
@@ -18,7 +13,7 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
     userId:   req.user?.userId,
   });
 
-  // ─── PostgreSQL errors ───────────────────────────────────────────────────
+  // PostgreSQL errors
   if (err.code === PG_UNIQUE_VIOLATION) {
     return res.status(409).json({
       success: false,
@@ -26,7 +21,7 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
     });
   }
 
-  // ─── JWT errors ──────────────────────────────────────────────────────────
+  // JWT errors
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({ success: false, message: 'Invalid token.' });
   }
@@ -34,7 +29,7 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
     return res.status(401).json({ success: false, message: 'Token has expired.' });
   }
 
-  // ─── Joi validation errors (if thrown directly) ──────────────────────────
+  // Joi validation errors (if thrown directly)
   if (err.isJoi) {
     return res.status(400).json({
       success: false,
@@ -43,7 +38,7 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
     });
   }
 
-  // ─── Explicit HTTP errors ────────────────────────────────────────────────
+  // Explicit HTTP errors
   if (err.status && err.status < 500) {
     return res.status(err.status).json({
       success: false,
@@ -51,7 +46,7 @@ function errorHandler(err, req, res, next) { // eslint-disable-line no-unused-va
     });
   }
 
-  // ─── Generic 500 ─────────────────────────────────────────────────────────
+  // Generic 500
   res.status(500).json({
     success: false,
     message: 'An unexpected error occurred. Please try again later.',

@@ -1,14 +1,3 @@
-/**
- * routes/profileRoutes.js
- * Profile and account endpoints.
- *
- * Final paths from server.js:
- * GET    /api/v1/profile
- * PUT    /api/v1/profile
- * PUT    /api/v1/profile/password
- * POST   /api/v1/profile/picture
- * DELETE /api/v1/profile
- */
 
 const { Router } = require('express');
 

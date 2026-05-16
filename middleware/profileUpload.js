@@ -1,7 +1,3 @@
-/**
- * middleware/profileUpload.js
- * Upload middleware for profile pictures.
- */
 
 const multer = require('multer');
 const path = require('path');

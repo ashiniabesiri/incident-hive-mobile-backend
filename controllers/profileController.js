@@ -1,7 +1,3 @@
-/**
- * controllers/profileController.js
- * Handles /api/v1/profile endpoints.
- */
 
 const bcrypt = require('bcryptjs');
 const Joi = require('joi');
@@ -50,9 +46,6 @@ function validationError(res, error) {
   });
 }
 
-/**
- * GET /api/v1/profile
- */
 async function getProfile(req, res, next) {
   try {
     const user = await UserModel.findPublicById(req.user.userId);
@@ -99,9 +92,6 @@ async function getProfile(req, res, next) {
   }
 }
 
-/**
- * PUT /api/v1/profile
- */
 async function updateProfile(req, res, next) {
   try {
     const { error, value } = updateProfileSchema.validate(req.body, {
@@ -175,9 +165,6 @@ async function updateProfile(req, res, next) {
   }
 }
 
-/**
- * PUT /api/v1/profile/password
- */
 async function changePassword(req, res, next) {
   try {
     const { error, value } = changePasswordSchema.validate(req.body, {
@@ -227,9 +214,6 @@ async function changePassword(req, res, next) {
   }
 }
 
-/**
- * POST /api/v1/profile/picture
- */
 async function uploadProfilePicture(req, res, next) {
   try {
     if (!req.file) {
@@ -260,9 +244,6 @@ async function uploadProfilePicture(req, res, next) {
   }
 }
 
-/**
- * DELETE /api/v1/profile
- */
 const deleteAccountSchema = Joi.object({
   password: Joi.string().required(),
   confirm_deletion: Joi.boolean().valid(true).required().messages({

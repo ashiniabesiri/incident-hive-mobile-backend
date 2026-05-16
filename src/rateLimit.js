@@ -1,14 +1,7 @@
-/**
- * middleware/rateLimit.js
- * Express-rate-limit configurations for different endpoint groups.
- *
- * All limiters use the in-memory store (default) so they work out of the box.
- * For multi-instance deployments, swap the store for RedisStore (see comment below).
- */
 
 const rateLimit = require('express-rate-limit');
 
-// ─── Shared options ────────────────────────────────────────────────────────────
+// Shared options
 const sharedOptions = {
   standardHeaders: true,   // Return RateLimit-* headers
   legacyHeaders:   false,  // Don't use X-RateLimit-* headers
@@ -21,28 +14,9 @@ const sharedOptions = {
   },
 };
 
-/*
- * ─── Redis Store (for multi-instance deployments) ─────────────────────────────
- * Uncomment and install 'rate-limit-redis' to share rate limit state across
- * multiple server instances:
- *
- * const { RedisStore } = require('rate-limit-redis');
- * const { getRedis } = require('../config/redis');
- *
- * function makeRedisStore(prefix) {
- *   return new RedisStore({
- *     sendCommand: (...args) => getRedis().call(...args),
- *     prefix,
- *   });
- * }
- */
 
-// ─── Limiters ──────────────────────────────────────────────────────────────────
+// Limiters
 
-/**
- * General auth limiter — applied to all /api/auth/* routes.
- * 5 requests per 15 minutes per IP.
- */
 const authLimiter = rateLimit({
   ...sharedOptions,
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10), // 15 min
@@ -51,10 +25,6 @@ const authLimiter = rateLimit({
   // store: makeRedisStore('rl:auth:'),
 });
 
-/**
- * Login limiter — stricter, prevents brute-force attacks.
- * 5 attempts per 15 minutes per IP.
- */
 const loginLimiter = rateLimit({
   ...sharedOptions,
   windowMs: 15 * 60 * 1000, // 15 min
@@ -64,10 +34,6 @@ const loginLimiter = rateLimit({
   // store: makeRedisStore('rl:login:'),
 });
 
-/**
- * Registration limiter — prevents mass account creation.
- * 3 attempts per hour per IP.
- */
 const registerLimiter = rateLimit({
   ...sharedOptions,
   windowMs: 60 * 60 * 1000, // 1 hour
@@ -76,10 +42,6 @@ const registerLimiter = rateLimit({
   // store: makeRedisStore('rl:register:'),
 });
 
-/**
- * MFA code limiter — prevents OTP brute-force.
- * 10 attempts per 15 minutes per IP.
- */
 const mfaLimiter = rateLimit({
   ...sharedOptions,
   windowMs: 15 * 60 * 1000, // 15 min
@@ -88,10 +50,6 @@ const mfaLimiter = rateLimit({
   // store: makeRedisStore('rl:mfa:'),
 });
 
-/**
- * Password change limiter.
- * 5 per hour per IP.
- */
 const passwordLimiter = rateLimit({
   ...sharedOptions,
   windowMs: 60 * 60 * 1000, // 1 hour

@@ -1,7 +1,3 @@
-/**
- * docs/swaggerDefinition.js
- * Manual OpenAPI documentation for Incident Hive API.
- */
 
 const API_PREFIX = process.env.API_PREFIX || '/api/v1';
 const PORT = process.env.PORT || 3000;
@@ -1407,7 +1403,7 @@ const swaggerDefinition = {
       },
     },
 
-    // ── Legacy auth routes (deprecated) ──────────────────────────────────────────
+    // Legacy auth routes (deprecated)
     '/auth/profile': {
       get: {
         tags: ['Auth'],

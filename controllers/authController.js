@@ -1,7 +1,3 @@
-/**
- * controllers/authController.js
- * Handler functions for /api/v1/auth/* endpoints.
- */
 
 const bcrypt = require('bcryptjs');
 const Joi = require('joi');
@@ -28,7 +24,7 @@ const {
 const { set, get, del } = require('../config/redis');
 const logger = require('../utils/logger');
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// Constants
 const SALT_ROUNDS = 10;
 
 const VERIFY_PREFIX  = 'verify:';
@@ -46,10 +42,10 @@ function sha256(value) {
 }
 const { ACCESS_TTL, SESSION_TTL } = TokenService;
 
-// ─── Google OAuth client ──────────────────────────────────────────────────────
+// Google OAuth client
 const googleAuthClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 function sendError(res, status, code, message, details = null) {
   return res.status(status).json({
     success: false,
@@ -74,7 +70,7 @@ function formatUser(user) {
   };
 }
 
-// ─── Register ─────────────────────────────────────────────────────────────────
+// Register
 async function register(req, res, next) {
   try {
     const { email, password, firstName, lastName, phoneNumber, device_id } = req.body;
@@ -101,10 +97,7 @@ async function register(req, res, next) {
       phoneNumber,
     });
 
-    // Email verification is required on first sign-up. Issue an OTP, store
-    // it in Redis under `verify:{email}`, and email it to the user. No
     // session tokens are returned — the client must complete /verify-email
-    // before it can sign in.
     const verificationCode = generateOtp();
     await set(`${VERIFY_PREFIX}${email}`, verificationCode, VERIFY_TTL);
 
@@ -122,8 +115,6 @@ async function register(req, res, next) {
         email_verified: false,
         verification_required: true,
         message: 'Account created. Check your inbox for the verification code.',
-        // Development-only escape hatch when SMTP isn't configured. Mirrors
-        // the resendVerification controller's existing pattern.
         ...(process.env.NODE_ENV === 'development' && {
           dev_verification_code: verificationCode,
         }),
@@ -134,7 +125,7 @@ async function register(req, res, next) {
   }
 }
 
-// ─── Verify Email ─────────────────────────────────────────────────────────────
+// Verify Email
 async function verifyEmail(req, res, next) {
   try {
     const { email, verificationCode, device_id } = req.body;
@@ -167,9 +158,7 @@ async function verifyEmail(req, res, next) {
 
     await del(`${VERIFY_PREFIX}${email}`);
 
-    // Issue auth tokens here so the user lands straight in the app after
     // verifying — they don't need to bounce back to login and re-enter
-    // credentials. This is "verify on first login" UX.
     const accessToken = TokenService.generateAccessToken({
       userId: user.user_id,
       email: user.email,
@@ -211,7 +200,7 @@ async function verifyEmail(req, res, next) {
   }
 }
 
-// ─── Resend Verification Email ────────────────────────────────────────────────
+// Resend Verification Email
 async function resendVerification(req, res, next) {
   try {
     const { email } = req.body;
@@ -232,10 +221,6 @@ async function resendVerification(req, res, next) {
       return res.status(200).json(genericResponse);
     }
     if (user.email_verified) {
-      // Tell the client explicitly so it can route the user to login instead
-      // of leaving them stranded on the verify-email screen. By the time a
-      // client knows this email, the account's existence is already known
-      // to them, so this is not an enumeration leak.
       logger.info(`Resend verification: ${email} is already verified — telling client.`);
       return res.status(200).json({
         success: true,
@@ -257,7 +242,6 @@ async function resendVerification(req, res, next) {
       ...genericResponse,
       data: {
         ...genericResponse.data,
-        // Development only: helps testing when SMTP email is not configured.
         ...(process.env.NODE_ENV === 'development' && {
           dev_verification_code: code,
         }),
@@ -268,14 +252,13 @@ async function resendVerification(req, res, next) {
   }
 }
 
-// ─── Login ────────────────────────────────────────────────────────────────────
+// Login
 async function login(req, res, next) {
   try {
     const { email, password, device_id } = req.body;
 
     const user = await UserModel.findByEmail(email);
 
-    // Valid bcrypt hash used only to reduce timing difference when user not found.
     const fakeHash = await bcrypt.hash('FakePassword@123', SALT_ROUNDS);
 
     const passwordMatch = await bcrypt.compare(
@@ -301,9 +284,6 @@ async function login(req, res, next) {
       );
     }
 
-    // First-time-login email verification gate. Issue a fresh OTP and ask
-    // the client to redirect to the verification screen. The OTP is sent
-    // asynchronously so the response isn't blocked by SMTP latency.
     if (!user.email_verified) {
       const verificationCode = generateOtp();
       await set(`${VERIFY_PREFIX}${email}`, verificationCode, VERIFY_TTL);
@@ -320,7 +300,6 @@ async function login(req, res, next) {
         },
         data: {
           email: user.email,
-          // Development-only escape hatch when SMTP isn't configured.
           ...(process.env.NODE_ENV === 'development' && {
             dev_verification_code: verificationCode,
           }),
@@ -328,14 +307,9 @@ async function login(req, res, next) {
       });
     }
 
-    // Look up biometric status for this device
     const device = await UserDeviceModel.findByUserAndDevice(user.user_id, device_id);
     const biometricEnabled = device?.biometric_enabled || false;
 
-    // MFA is now mandatory on every password-based login, regardless of the
-    // user.mfa_enabled flag. The flag still drives the in-app MFA *setup*
-    // flow, but the login step always requires a fresh email OTP. Biometric
-    // and Google sign-in remain second-factor-equivalent and skip this path.
     {
       const mfaCode = generateOtp();
       await set(`${MFA_PREFIX}${email}`, mfaCode, MFA_TTL);
@@ -351,7 +325,6 @@ async function login(req, res, next) {
           message:
             'An MFA code has been sent to your email. Please complete the second step.',
 
-          // Development only: helps testing when SMTP email is not configured.
           ...(process.env.NODE_ENV === 'development' && {
             dev_mfa_code: mfaCode,
           }),
@@ -397,7 +370,7 @@ async function login(req, res, next) {
   }
 }
 
-// ─── Refresh Token ────────────────────────────────────────────────────────────
+// Refresh Token
 async function refreshToken(req, res, next) {
   try {
     const { refresh_token: incomingToken, device_id } = req.body;
@@ -461,7 +434,7 @@ async function refreshToken(req, res, next) {
   }
 }
 
-// ─── Logout ───────────────────────────────────────────────────────────────────
+// Logout
 async function logout(req, res, next) {
   try {
     const { refresh_token } = req.body;
@@ -484,7 +457,7 @@ async function logout(req, res, next) {
   }
 }
 
-// ─── MFA Setup ────────────────────────────────────────────────────────────────
+// MFA Setup
 async function mfaSetup(req, res, next) {
   try {
     const { userId, email } = req.user;
@@ -503,7 +476,6 @@ async function mfaSetup(req, res, next) {
       data: {
         message: 'MFA setup initiated. A verification code has been sent to your email.',
 
-        // Development only: helps testing when SMTP email is not configured.
         ...(process.env.NODE_ENV === 'development' && {
           dev_mfa_code: code,
         }),
@@ -514,7 +486,7 @@ async function mfaSetup(req, res, next) {
   }
 }
 
-// ─── MFA Verify ───────────────────────────────────────────────────────────────
+// MFA Verify
 async function mfaVerify(req, res, next) {
   try {
     const { userId, email, role } = req.user;
@@ -531,7 +503,6 @@ async function mfaVerify(req, res, next) {
       );
     }
 
-    // For email OTP MFA, we store encrypted email as simple secret reference.
     const mfaSecret = encrypt(email);
 
     await UserModel.enableMfa(userId, mfaSecret);
@@ -560,7 +531,7 @@ async function mfaVerify(req, res, next) {
   }
 }
 
-// ─── MFA Login ────────────────────────────────────────────────────────────────
+// MFA Login
 async function mfaLogin(req, res, next) {
   try {
     const { email, otp_code, device_id } = req.body;
@@ -618,7 +589,7 @@ async function mfaLogin(req, res, next) {
   }
 }
 
-// ─── Google Sign-In ───────────────────────────────────────────────────────────
+// Google Sign-In
 async function googleLogin(req, res, next) {
   try {
     const { idToken, device_id } = req.body;
@@ -626,10 +597,6 @@ async function googleLogin(req, res, next) {
     let payload;
 
     try {
-      // Accept tokens issued for any of the configured Google client IDs:
-      //  • GOOGLE_CLIENT_ID — iOS native client (audience = iOS client ID).
-      //  • GOOGLE_WEB_CLIENT_ID — Web/server client used by Android Credential
-      //    Manager (audience = Web client ID).
       const audiences = [
         process.env.GOOGLE_CLIENT_ID,
         process.env.GOOGLE_WEB_CLIENT_ID,
@@ -732,7 +699,7 @@ async function googleLogin(req, res, next) {
   }
 }
 
-// ─── Change Password ──────────────────────────────────────────────────────────
+// Change Password
 async function changePassword(req, res, next) {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -771,7 +738,7 @@ async function changePassword(req, res, next) {
   }
 }
 
-// ─── Account Deletion ─────────────────────────────────────────────────────────
+// Account Deletion
 const deleteAccountSchema = Joi.object({
   password: Joi.string().required(),
   confirm_deletion: Joi.boolean().valid(true).required().messages({
@@ -835,7 +802,7 @@ async function deleteAccount(req, res, next) {
   }
 }
 
-// ─── Biometric Register / Enroll ──────────────────────────────────────────────
+// Biometric Register / Enroll
 async function biometricRegister(req, res, next) {
   try {
     const { userId } = req.user;
@@ -859,7 +826,7 @@ async function biometricRegister(req, res, next) {
   }
 }
 
-// ─── Biometric Login ──────────────────────────────────────────────────────────
+// Biometric Login
 async function biometricLogin(req, res, next) {
   try {
     const { user_id, device_id } = req.body;
@@ -919,7 +886,7 @@ async function biometricLogin(req, res, next) {
   }
 }
 
-// ─── Get Profile Legacy Route ─────────────────────────────────────────────────
+// Get Profile Legacy Route
 async function getProfile(req, res, next) {
   try {
     const user = await UserModel.findPublicById(req.user.userId);
@@ -939,7 +906,7 @@ async function getProfile(req, res, next) {
   }
 }
 
-// ─── POST /api/v1/auth/forgot-password ────────────────────────────────────────
+// POST /api/v1/auth/forgot-password
 
 async function forgotPassword(req, res, next) {
   try {
@@ -957,8 +924,6 @@ async function forgotPassword(req, res, next) {
     }
 
     const otp = generateOtp();
-    // Store only the hashed OTP; invalidate any prior reset OTP/reset token
-    // for this email so older codes can't be reused.
     const emailKey = user.email.toLowerCase();
     await del(`${PW_RESET_PREFIX}${emailKey}`, `${PW_RESET_TOKEN_PREFIX}${emailKey}`);
     await set(`${PW_RESET_PREFIX}${emailKey}`, sha256(otp), PW_RESET_TTL);
@@ -978,7 +943,7 @@ async function forgotPassword(req, res, next) {
   }
 }
 
-// ─── POST /api/v1/auth/verify-reset-otp ───────────────────────────────────────
+// POST /api/v1/auth/verify-reset-otp
 
 async function verifyResetOtp(req, res, next) {
   try {
@@ -994,7 +959,6 @@ async function verifyResetOtp(req, res, next) {
       return sendError(res, 400, 'INVALID_RESET_CODE', 'Invalid or expired OTP.');
     }
 
-    // Issue a short-lived reset token. The OTP itself is consumed here so it
     // can't be reused; the client must present the token to /reset-password.
     const resetToken = crypto.randomBytes(32).toString('hex');
     await del(`${PW_RESET_PREFIX}${emailKey}`);
@@ -1012,16 +976,14 @@ async function verifyResetOtp(req, res, next) {
   }
 }
 
-// ─── POST /api/v1/auth/reset-password ─────────────────────────────────────────
+// POST /api/v1/auth/reset-password
 
 async function resetPassword(req, res, next) {
   try {
     const { email, otp_code, reset_token, new_password } = req.body;
     const emailKey = email.toLowerCase();
 
-    // Two flows are supported: the new 3-step flow that presents a reset
     // token issued by /verify-reset-otp, and the legacy single-step flow that
-    // posts the raw OTP. The schema enforces that at least one is present.
     if (reset_token) {
       const storedTokenHash = await get(`${PW_RESET_TOKEN_PREFIX}${emailKey}`);
       if (!storedTokenHash) {
@@ -1048,8 +1010,6 @@ async function resetPassword(req, res, next) {
     const newHash = await bcrypt.hash(new_password, SALT_ROUNDS);
     await UserModel.updatePassword(user.user_id, newHash);
 
-    // Invalidate any leftover reset artefacts and all existing sessions so
-    // attackers with stolen refresh tokens lose access on password change.
     await del(
       `${PW_RESET_PREFIX}${emailKey}`,
       `${PW_RESET_TOKEN_PREFIX}${emailKey}`
@@ -1067,7 +1027,7 @@ async function resetPassword(req, res, next) {
   }
 }
 
-// ─── Exports ──────────────────────────────────────────────────────────────────
+// Exports
 module.exports = {
   register,
   verifyEmail,

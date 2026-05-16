@@ -1,14 +1,9 @@
-/**
- * services/tokenService.js
- * JWT generation, verification, and Redis-backed refresh token management.
- */
 
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const { set, get, del } = require('../config/redis');
 const logger = require('../utils/logger');
 
-// Key prefixes mirror those documented in config/redis.js
 const REFRESH_PREFIX = 'refresh:';
 const SESSION_PREFIX = 'session:';
 
@@ -17,13 +12,8 @@ const REFRESH_TTL = parseInt(process.env.REFRESH_TOKEN_TTL_SECONDS || '604800', 
 const SESSION_TTL = parseInt(process.env.SESSION_TTL_SECONDS       || '1800',   10); // 30 min
 
 const TokenService = {
-  // ─── Access Token ──────────────────────────────────────────────────────────
+  // Access Token
 
-  /**
-   * Generate a short-lived JWT access token.
-   * @param {Object} payload - { userId, email, role }
-   * @returns {string} Signed JWT
-   */
   generateAccessToken(payload) {
     return jwt.sign(
       {
@@ -37,47 +27,24 @@ const TokenService = {
     );
   },
 
-  /**
-   * Verify and decode a JWT access token.
-   * @returns {Object} Decoded payload
-   * @throws  {Error}  If the token is invalid or expired
-   */
   verifyAccessToken(token) {
     return jwt.verify(token, process.env.JWT_ACCESS_SECRET);
   },
 
-  // ─── Refresh Token ─────────────────────────────────────────────────────────
+  // Refresh Token
 
-  /**
-   * Generate a cryptographically random refresh token, persist it in Redis,
-   * and return the token string.
-   *
-   * Redis key: refresh:{userId}
-   * Value:     the refresh token string
-   * TTL:       REFRESH_TOKEN_TTL_SECONDS
-   */
   async generateRefreshToken(userId) {
-    // Use a signed JWT so we can detect tampering even without a Redis lookup
     const token = jwt.sign(
       { sub: userId, jti: uuidv4(), type: 'refresh' },
       process.env.JWT_REFRESH_SECRET,
       { expiresIn: REFRESH_TTL }
     );
 
-    // Store in Redis (only the latest token is valid — single-device model)
     await set(`${REFRESH_PREFIX}${userId}`, token, REFRESH_TTL);
 
     return token;
   },
 
-  /**
-   * Validate a refresh token:
-   * 1. Verify JWT signature & expiry
-   * 2. Confirm it matches what's stored in Redis (detects token reuse after rotation)
-   *
-   * @returns {{ userId: string }} The decoded token payload
-   * @throws  {Error} On any validation failure
-   */
   async validateRefreshToken(token) {
     let decoded;
     try {
@@ -94,7 +61,6 @@ const TokenService = {
     const stored = await get(`${REFRESH_PREFIX}${userId}`);
 
     if (!stored || stored !== token) {
-      // Possible token reuse attack — invalidate everything
       await del(`${REFRESH_PREFIX}${userId}`, `${SESSION_PREFIX}${userId}`);
       logger.warn(`Possible refresh token reuse detected for user ${userId}`);
       throw new Error('Refresh token reuse detected. Please log in again.');
@@ -103,12 +69,7 @@ const TokenService = {
     return { userId };
   },
 
-  /**
-   * Rotate refresh token: delete the old one, issue a new one.
-   * Returns both new tokens.
-   */
   async rotateRefreshToken(userId, email, role) {
-    // Delete old refresh token from Redis first
     await del(`${REFRESH_PREFIX}${userId}`);
 
     const accessToken  = TokenService.generateAccessToken({ userId, email, role });
@@ -117,37 +78,23 @@ const TokenService = {
     return { accessToken, refreshToken };
   },
 
-  /**
-   * Invalidate all tokens for a user (logout / account deletion).
-   */
   async revokeAllTokens(userId) {
     await del(`${REFRESH_PREFIX}${userId}`, `${SESSION_PREFIX}${userId}`);
   },
 
-  // ─── Session (Inactivity TTL) ─────────────────────────────────────────────
+  // Session (Inactivity TTL)
 
-  /**
-   * Create or refresh the sliding session window in Redis.
-   * Called by the auth middleware on every authenticated request.
-   */
   async touchSession(userId) {
     await set(`${SESSION_PREFIX}${userId}`, 'active', SESSION_TTL);
   },
 
-  /**
-   * Check whether the user's session is still active.
-   * Returns false if the key has expired (user was inactive for SESSION_TTL).
-   */
   async isSessionActive(userId) {
     const val = await get(`${SESSION_PREFIX}${userId}`);
     return val === 'active';
   },
 
-  // ─── Biometric Token ──────────────────────────────────────────────────────
+  // Biometric Token
 
-  /**
-   * Generate a short-lived token used in the biometric login flow.
-   */
   generateBiometricToken(userId) {
     return jwt.sign(
       { sub: userId, type: 'biometric' },

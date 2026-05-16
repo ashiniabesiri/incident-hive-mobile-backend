@@ -7,7 +7,6 @@ function rateLimitHandler(req, res) {
     : null;
 
   // Log every rate-limit hit so devs can see why a request was rejected
-  // without having to peek at HTTP status codes from the client.
   logger.warn(
     `Rate limit hit: ${req.method} ${req.originalUrl} | email=${req.body?.email || '-'} | retry_after=${retryAfterSeconds}s`
   );
@@ -30,14 +29,12 @@ const commonOptions = {
   handler: rateLimitHandler,
 };
 
-// Baseline — applied to all /api/v1/auth/* routes
 const authLimiter = rateLimit({
   ...commonOptions,
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || String(15 * 60 * 1000), 10),
   max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
 });
 
-// 5 failed attempts / 15 min — only failed requests count
 const loginLimiter = rateLimit({
   ...commonOptions,
   windowMs: 15 * 60 * 1000,
@@ -45,16 +42,8 @@ const loginLimiter = rateLimit({
   skipSuccessfulRequests: true,
 });
 
-// Registration throttle. In production we cap successful sign-ups at 3 / hour
-// per IP — this is meant to slow down spam account creation, NOT to punish a
-// user who mistypes a password and retries. Two behaviour changes vs. the
 // previous config:
-//
-//   • `skipFailedRequests: true` — 4xx responses (validation errors, duplicate
 //     email, etc.) don't consume the budget, so a few bad attempts in a row
-//     no longer surface as "Too many requests" on the next legitimate try.
-//   • `max` is unbounded in non-production so devs aren't locked out after
-//     three test signups in the same hour. Production keeps the strict 3.
 const registerLimiter = rateLimit({
   ...commonOptions,
   windowMs: 60 * 60 * 1000,
@@ -62,7 +51,6 @@ const registerLimiter = rateLimit({
   skipFailedRequests: true,
 });
 
-// 10 refresh attempts / 15 min per device_id
 const refreshLimiter = rateLimit({
   ...commonOptions,
   windowMs: 15 * 60 * 1000,
@@ -77,7 +65,6 @@ const mfaLimiter = rateLimit({
   max: 10,
 });
 
-// 3 biometric enrolment attempts / 15 min per user_id + device_id
 const biometricEnrollLimiter = rateLimit({
   ...commonOptions,
   windowMs: 15 * 60 * 1000,
@@ -89,7 +76,6 @@ const biometricEnrollLimiter = rateLimit({
   },
 });
 
-// 5 email verification attempts / 15 min per email
 const verifyEmailLimiter = rateLimit({
   ...commonOptions,
   windowMs: 15 * 60 * 1000,
@@ -97,7 +83,6 @@ const verifyEmailLimiter = rateLimit({
   keyGenerator: (req) => req.body?.email?.toLowerCase() || req.ip,
 });
 
-// 3 resend-verification requests / 15 min per email
 const resendVerificationLimiter = rateLimit({
   ...commonOptions,
   windowMs: 15 * 60 * 1000,
@@ -105,7 +90,6 @@ const resendVerificationLimiter = rateLimit({
   keyGenerator: (req) => req.body?.email?.toLowerCase() || req.ip,
 });
 
-// 5 biometric login attempts / 15 min per user_id + device_id
 const biometricLoginLimiter = rateLimit({
   ...commonOptions,
   windowMs: 15 * 60 * 1000,

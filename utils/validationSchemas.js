@@ -1,6 +1,6 @@
 const Joi = require('joi');
 
-// ── Reusable fields ────────────────────────────────────────────────────────────
+// Reusable fields
 const emailField = Joi.string()
   .email({ tlds: { allow: false } })
   .lowercase()
@@ -25,7 +25,7 @@ const sixDigitCode = Joi.string()
     'string.pattern.base': 'Code must be exactly 6 digits.',
   });
 
-// ── Auth schemas ───────────────────────────────────────────────────────────────
+// Auth schemas
 const registerSchema = Joi.object({
   email: emailField,
   password: strongPassword,
@@ -46,7 +46,6 @@ const verifyEmailSchema = Joi.object({
   email: emailField,
   verificationCode: sixDigitCode,
   // Optional so the legacy "verify-then-login-again" call still works; new
-  // clients pass it so we can issue tokens straight from verifyEmail.
   device_id: Joi.string().min(3).max(255).optional().allow(null, ''),
 });
 
@@ -96,9 +95,6 @@ const mfaLoginSchema = Joi.object({
   device_id: Joi.string().min(3).max(255).optional().allow(null, ''),
 });
 
-// Safer biometric enrolment.
-// Biometric data stays on the phone.
-// Backend only stores device_id and biometric_enabled = true.
 const biometricRegisterSchema = Joi.object({
   device_id: Joi.string().min(3).max(255).required(),
   device_name: Joi.string().min(1).max(255).optional().allow(null, ''),
@@ -109,19 +105,18 @@ const biometricLoginSchema = Joi.object({
   device_id: Joi.string().min(3).max(255).required(),
 });
 
-// ── Google login schema ──────────────────────────────────────────────────────
+// Google login schema
 const googleLoginSchema = Joi.object({
   idToken: Joi.string().required(),
   device_id: Joi.string().min(3).max(255).optional().allow(null, ''),
 });
 
-// ── Password reset schemas ───────────────────────────────────────────────────
+// Password reset schemas
 const forgotPasswordSchema = Joi.object({
   email: Joi.string().email().trim().lowercase().required(),
 });
 
 // The reset-password endpoint accepts either:
-//  - a short-lived `reset_token` issued by /verify-reset-otp (preferred), OR
 //  - a raw `otp_code` (legacy single-step flow) for backward compatibility.
 const resetPasswordSchema = Joi.object({
   email: Joi.string().email().trim().lowercase().required(),

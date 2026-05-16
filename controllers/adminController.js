@@ -12,7 +12,7 @@ const { query } = require('../config/database');
 
 const SALT_ROUNDS = 10;
 
-// ─── Validation schemas ────────────────────────────────────────────────────────
+// Validation schemas
 
 const createExpertSchema = Joi.object({
   email: Joi.string().email().trim().lowercase().required(),
@@ -37,7 +37,7 @@ const terminateSessionSchema = Joi.object({
   user_id: Joi.string().uuid().required(),
 });
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
+// Helpers
 
 function sendError(res, status, code, message) {
   return res.status(status).json({
@@ -57,7 +57,7 @@ function validationError(res, error) {
   });
 }
 
-// ─── POST /api/v1/admin/experts ───────────────────────────────────────────────
+// POST /api/v1/admin/experts
 
 async function createExpert(req, res, next) {
   try {
@@ -119,7 +119,7 @@ async function createExpert(req, res, next) {
   }
 }
 
-// ─── POST /api/v1/admin/sessions/terminate ────────────────────────────────────
+// POST /api/v1/admin/sessions/terminate
 
 async function terminateSession(req, res, next) {
   try {
@@ -148,7 +148,7 @@ async function terminateSession(req, res, next) {
   }
 }
 
-// ─── PATCH /api/v1/admin/users/:user_id/status ───────────────────────────────
+// PATCH /api/v1/admin/users/:user_id/status
 
 const updateUserStatusSchema = Joi.object({
   account_status: Joi.string().valid('active', 'suspended').required().messages({
@@ -189,7 +189,7 @@ async function updateUserStatus(req, res, next) {
   }
 }
 
-// ─── GET /api/v1/admin/audit-logs ─────────────────────────────────────────────
+// GET /api/v1/admin/audit-logs
 
 async function getAuditLogs(req, res, next) {
   try {
@@ -228,7 +228,7 @@ async function getAuditLogs(req, res, next) {
   }
 }
 
-// ─── GET /api/v1/admin/users ──────────────────────────────────────────────────
+// GET /api/v1/admin/users
 
 async function listUsers(req, res, next) {
   try {
@@ -265,7 +265,7 @@ async function listUsers(req, res, next) {
   }
 }
 
-// ─── GET /api/v1/admin/users/:user_id ────────────────────────────────────────
+// GET /api/v1/admin/users/:user_id
 
 async function getUser(req, res, next) {
   try {
@@ -296,7 +296,7 @@ async function getUser(req, res, next) {
   }
 }
 
-// ─── GET /api/v1/admin/dashboard/stats ───────────────────────────────────────
+// GET /api/v1/admin/dashboard/stats
 
 async function getDashboardStats(req, res, next) {
   try {

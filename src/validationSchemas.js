@@ -1,11 +1,7 @@
-/**
- * utils/validationSchemas.js
- * Joi schemas for every request body in the auth flow.
- */
 
 const Joi = require('joi');
 
-// ─── Reusable field definitions ────────────────────────────────────────────────
+// Reusable field definitions
 const email = Joi.string().email({ tlds: { allow: false } }).lowercase().trim().required();
 
 const password = Joi.string()
@@ -24,7 +20,7 @@ const sixDigitCode = Joi.string().length(6).pattern(/^\d{6}$/).required().messag
   'string.length': 'Code must be exactly 6 digits',
 });
 
-// ─── Auth Schemas ──────────────────────────────────────────────────────────────
+// Auth Schemas
 
 const registerSchema = Joi.object({
   email,
@@ -62,10 +58,9 @@ const changePasswordSchema = Joi.object({
   return value;
 }).messages({ 'any.invalid': 'New password must be different from the current password' });
 
-// ─── MFA Schemas ───────────────────────────────────────────────────────────────
+// MFA Schemas
 
 const mfaSetupSchema = Joi.object({
-  // No body required for setup — user is identified via JWT
 });
 
 const mfaVerifySchema = Joi.object({
@@ -77,7 +72,7 @@ const mfaLoginSchema = Joi.object({
   code: sixDigitCode,
 });
 
-// ─── Biometric Schemas ─────────────────────────────────────────────────────────
+// Biometric Schemas
 
 const biometricRegisterSchema = Joi.object({
   biometricKey: Joi.string().min(16).max(1024).required().messages({

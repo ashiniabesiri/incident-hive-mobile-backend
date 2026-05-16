@@ -9,9 +9,6 @@ function parsePagination(req) {
   return { page, limit, offset };
 }
 
-/**
- * GET /api/v1/news
- */
 async function getNews(req, res, next) {
   try {
     const { page, limit, offset } = parsePagination(req);
@@ -42,9 +39,6 @@ async function getNews(req, res, next) {
   }
 }
 
-/**
- * GET /api/v1/testimonials
- */
 async function getTestimonials(req, res, next) {
   try {
     const { page, limit, offset } = parsePagination(req);
